@@ -4,7 +4,7 @@ import { pxToMm, lpiInUse } from '../core/geometry.js';
 const CHECKLIST = [
   ['paper', 'Glossy photo paper loaded, and the matching paper type selected in the driver'],
   ['quality', 'Quality set to the highest mode'],
-  ['bidir', 'High Speed (bidirectional) printing OFF: prevents pass misalignment and banding'],
+  ['bidir', 'Bidirectional / "High Speed" printing OFF: prevents pass misalignment and banding'],
   ['scale', 'Scaling 100%: "fit to page" off, borderless expansion off'],
   ['enhance', 'Auto-enhance / colour correction off (or the same on every print)'],
   ['patch', 'Printed a small test patch first (e.g. the 2-frame flip test) and checked it under the lens'],
@@ -31,9 +31,9 @@ export default {
               stat('Frame order', s.interlace.reverse ? 'reversed' : 'normal'))
             : hint('No interlaced file yet; generate it in Step 6.'),
           out ? h('div', { class: 'btn-row', style: { marginTop: '10px' } }, button('Download interlaced.png', () => downloadBlob(out, 'interlaced.png'), { kind: 'primary' })) : null,
-          hint(`Print from an app that respects the embedded ${s.printer.ppi} ppi (e.g. the Epson Photo+ app or Windows Photos with "actual size"). Measure the print with a ruler: it should match the card size + bleed exactly.`),
+          hint(`Print from an app that respects the embedded ${s.printer.ppi} ppi (e.g. IrfanView "original size (from DPI)", GIMP or Photoshop; many photo viewers rescale). Measure the print with a ruler: it should match the card size + bleed exactly.`),
         ),
-        card('Printer checklist (Epson L3250)',
+        card('Printer checklist',
           h('ul', { class: 'checklist' }, CHECKLIST.map(([k, text]) => h('li', {}, checkbox({
             label: text, checked: !!s.print.checklist[k],
             onChange: (v) => store.update((st) => { st.print.checklist[k] = v; }),
@@ -54,7 +54,7 @@ export default {
         ),
         card('Troubleshooting',
           h('dl', { class: 'trouble' },
-            h('dt', {}, 'Bands or beating stripes across the card'), h('dd', {}, 'Pitch is off: re-run the pitch test and enter the measured LPI. Also check bidirectional printing is OFF.'),
+            h('dt', {}, 'Bands or beating stripes across the card'), h('dd', {}, 'Pitch is off: re-run the pitch test and enter the measured LPI. Also check bidirectional (High Speed) printing is OFF.'),
             h('dt', {}, 'Ghosting / double images'), h('dd', {}, 'Too much motion or depth per frame. Lower depth strength (Step 5) or effect amounts (Step 4), or the depth budget (Step 2).'),
             h('dt', {}, 'Effect happens in the wrong direction'), h('dd', {}, 'Rotate the lens 90°, or change the ridge orientation in Step 1 and re-interlace.'),
             h('dt', {}, '3D looks inside-out'), h('dd', {}, 'Toggle "Reverse frame order" in Step 6 and print again.'),

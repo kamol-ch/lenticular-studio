@@ -1,6 +1,6 @@
 # Lenticular Card Studio
 
-A browser tool for making lenticular cards (3D depth, animation, or both) from watercolor scans. It is tuned for an Epson L3250 at 720 ppi and a 75 LPI lens. Everything runs locally in the browser and nothing is uploaded.
+A browser tool for making lenticular cards (3D depth, animation, or both) from watercolor scans. It works with any inkjet printer and lens: you calibrate the lens pitch with a printed test sheet, and the defaults are 720 ppi and a 75 LPI lens. Everything runs locally in the browser and nothing is uploaded.
 
 ## Run it
 

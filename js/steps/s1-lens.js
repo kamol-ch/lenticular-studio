@@ -39,7 +39,7 @@ export default {
         const fits = (st.card.widthMm <= sw && st.card.heightMm <= sh) || (st.card.widthMm <= sh && st.card.heightMm <= sw);
         if (!fits) ws.push({ level: 'warn', text: `The card (${st.card.widthMm} × ${st.card.heightMm} mm) is larger than the lens sheet (${sw} × ${sh} mm).` });
       }
-      if (st.printer.ppi !== 720) ws.push({ level: 'info', text: `${st.printer.ppi} ppi is experimental; compare against a 720 ppi print of the same file.` });
+      if (st.printer.ppi > 720) ws.push({ level: 'info', text: `${st.printer.ppi} ppi is experimental; compare against a print at your printer's native resolution.` });
       sizeWarn.replaceChildren(warnings(ws) || '');
     };
 
@@ -158,9 +158,13 @@ export default {
         ),
         card('Printer & card',
           row(
-            selectField({ label: 'Printer resolution', value: s().printer.ppi, options: [[720, '720 ppi (Epson native)'], [1440, '1440 ppi (experimental)'], [600, '600 ppi'], [300, '300 ppi']], onChange: (v) => set((st) => { st.printer.ppi = Number(v); }) }),
+            selectField({
+              label: 'Printer resolution', value: s().printer.ppi,
+              options: [[720, '720 ppi'], [600, '600 ppi'], [1440, '1440 ppi (experimental)'], [1200, '1200 ppi (experimental)'], [300, '300 ppi']],
+              onChange: (v) => set((st) => { st.printer.ppi = Number(v); }),
+              hint: "Use your printer's native input resolution (typically 720 ppi for Epson inkjets, 600 ppi for Canon and HP).",
+            }),
           ),
-          h('div', { class: 'field' }, h('label', {}, 'Printer'), h('div', {}, s().printer.model)),
           preset, cardFields,
         ),
       ),

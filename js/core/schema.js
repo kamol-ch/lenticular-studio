@@ -13,7 +13,7 @@ export function defaultState() {
       lpiNominal: 75, lpiMeasured: null, angleDeg: null, orientation: 'vertical',
       sheetWidthMm: null, sheetHeightMm: null,
     },
-    printer: { ppi: 720, model: 'Epson L3250' },
+    printer: { ppi: 720 },
     card: { widthMm: 100, heightMm: 150, bleedMm: 3 },
     tests: { pitchFrom: 74.6, pitchTo: 75.4, pitchStep: 0.05 },
     plan: { frames: 8, samplesPerLens: 3, budgetLensPerFrame: 1, viewDistMm: 400, ipdMm: 63 },
