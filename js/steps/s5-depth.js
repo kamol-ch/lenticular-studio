@@ -1,4 +1,4 @@
-import { h, card, row, hint, slider, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings, selectField } from '../ui.js';
+import { h, card, row, hint, tip, more, slider, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings, selectField } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
 import { applyBrush, createDepthMap, edgeCleanup } from '../core/depthmap.js';
 import { makeCanvas, ctx2d, sizeForDisplay, canvasToBlob, depthMapToCanvas, depthMapFromBlob, imageDataOf } from '../canvas.js';
@@ -78,7 +78,17 @@ export default {
   title: 'Depth & 3D',
   subtitle: 'Layers or AI depth',
   optional: true,
-  intro: 'Optional. Give layers a depth, or estimate a depth map from a flat painting, then build the per-view frames.',
+  intro: 'Optional. Add depth, then build the frames.',
+  guide: [
+    ['depthLayers', 'Layers', 'Set each layer near or far'],
+    ['depthMap', 'Or a depth map', 'AI estimate, then paint fixes'],
+    ['anaglyph', 'Check it', 'Wiggle and red/cyan previews'],
+  ],
+  details: [
+    'Key plane: the depth that stays still and sharpest, usually the main subject. Things nearer pop out of the card; farther ones sink behind it.',
+    'Strength scales the effect. Keep the largest shift within the depth budget (Step 2), or the print blurs. "Fit strength to budget" sets the maximum safe value.',
+    'The AI depth model runs in your browser. It downloads once (about 25 MB) and is then cached.',
+  ],
   render(root, { store, go }) {
     const s = () => store.state;
     const prog = progress();
@@ -131,7 +141,7 @@ export default {
       });
     };
     const layersPanel = card('Layer depths',
-      hint('Back layers far (−), front layers near (+). Shift per frame = (depth − key plane) × strength × budget.'),
+      tip('Back layers far (−), front layers near (+).', 'Each frame shifts a layer by (depth − key plane) × strength × budget pixels, so layers at the key plane stay still.'),
       layersBox,
       h('div', { class: 'btn-row' }, button('Spread evenly (back −1 → front +1)', () => {
         store.update((st) => {
@@ -188,7 +198,7 @@ export default {
 
     let dil = 2, blr = 2;
     const aiPanel = card('Depth map',
-      hint('White = near, black = far. Estimate it with AI (Depth Anything, runs in your browser), start from your layers, or import one. Then paint corrections.'),
+      tip('White = near, black = far. Start with AI, then paint fixes.', 'Estimate with AI (Depth Anything, runs in your browser), start from your layers, or import a depth.png. Then brush nearer/farther where the estimate is wrong, and smooth harsh edges.'),
       h('div', { class: 'btn-row' },
         button('Estimate with AI', async () => {
           if (!frameSource(s(), store.assets)) throw new Error('Add an image in Step 3 (or a clip in Step 4) first.');
@@ -219,7 +229,7 @@ export default {
         slider({ label: 'Brush strength', value: brushS, min: 0.05, max: 1, step: 0.05, format: (v) => v.toFixed(2), onInput: (v) => { brushS = v; } }),
       ),
       h('h4', {}, 'Edge cleanup'),
-      hint('Grows near regions slightly then smooths, so foreground edges carry their own halo instead of tearing.'),
+      more('Grows near regions slightly, then smooths, so foreground edges carry their own halo instead of tearing.'),
       row(
         slider({ label: 'Grow', value: dil, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { dil = v; } }),
         slider({ label: 'Smooth', value: blr, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { blr = v; } }),
@@ -291,7 +301,7 @@ export default {
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: '18px' } },
           card('Depth settings', keyPlane, strength, h('div', { class: 'btn-row' }, fitBudget), usage),
           card('Build frames',
-            hint('Renders every view at working resolution (combining motion from Step 4 when present).'),
+            hint('Renders every view, with any motion from Step 4.'),
             h('div', { class: 'btn-row' },
               button('Build frames', async () => {
                 await buildFinalFrames((p, l) => prog.set(p, l));

@@ -1,4 +1,4 @@
-import { h, card, row, hint, numberField, textField, slider, checkbox, button, dropZone, downloadBlob, pickFiles, toast, clear } from '../ui.js';
+import { h, card, row, hint, tip, numberField, textField, slider, checkbox, button, dropZone, downloadBlob, pickFiles, toast, clear } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
 import { sizeForDisplay, ctx2d } from '../canvas.js';
 import { renderComposite } from '../compose.js';
@@ -41,7 +41,16 @@ export default {
   id: 3,
   title: 'Images',
   subtitle: 'Paintings & layers',
-  intro: 'Upload one scan, or several layers (PNG with transparency for cut-outs). Position them on the card; the dashed line is the trim, outside it is bleed.',
+  intro: 'Add your painting: one scan, or separate layers for 3D.',
+  guide: [
+    ['layers', 'Upload', 'One scan, or PNG cut-out layers'],
+    ['arrange', 'Arrange', 'Drag to move, scroll to resize'],
+    ['bleed', 'Fill to the edge', 'Cover the bleed past the red line'],
+  ],
+  details: [
+    'Layers stack bottom to top: the last one in the list is the back of the card. Use PNG with transparency for cut-outs such as a flower in front of a sky.',
+    'For 3D, give each layer a depth here or in Step 5. Paint layers a little wider than needed: 3D shifts reveal their edges.',
+  ],
   render(root, { store }) {
     const s = () => store.state;
     let selected = s().layers.at(-1)?.id || null;
@@ -146,7 +155,7 @@ export default {
             renderList(); renderProps(); draw();
           }, { kind: 'small danger' }),
         ),
-        hint('Painted wider than the card? Good: 3D layer shifts reveal the edges, so extra painting around a layer avoids gaps.'),
+        tip('Depth: − is far, + is near.', 'Painted wider than the card? Good: 3D shifts reveal the edges, so extra painting around a layer avoids gaps.'),
       );
     };
 
@@ -201,7 +210,7 @@ export default {
 
     root.append(
       h('div', { class: 'cols-wide' },
-        card(null, stage, hint('Drag to move the selected layer, scroll to resize. The bottom of the list is the back of the card.')),
+        card(null, stage, hint('Drag to move · scroll to resize · red dashes = cut line')),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: '18px' } },
           card('Layers',
             dropZone({ accept: 'image/*', multiple: true, onFiles, label: 'Drop scans or PNG layers here, or click to choose' }),

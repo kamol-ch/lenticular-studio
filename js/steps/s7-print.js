@@ -1,4 +1,4 @@
-import { h, card, checkbox, hint, button, downloadBlob, stat, fmt } from '../ui.js';
+import { h, card, checkbox, hint, tip, more, button, downloadBlob, stat, fmt } from '../ui.js';
 import { pxToMm, lpiInUse } from '../core/geometry.js';
 
 const CHECKLIST = [
@@ -14,7 +14,14 @@ export default {
   id: 7,
   title: 'Print & mount',
   subtitle: 'Settings & assembly',
-  intro: 'Print the interlaced file at true size, then laminate the lens over it.',
+  intro: 'Print at true size, then put the lens on.',
+  guide: [
+    ['print', 'Print at 100%', 'Let it dry fully'],
+    ['align', 'Align the lens', 'Ridges along the strip'],
+    ['tape', 'Tape one edge', 'Once it looks right'],
+    ['roll', 'Glue and roll', 'From the taped edge'],
+    ['trim', 'Trim', 'Through lens and print'],
+  ],
   render(root, { store }) {
     const s = store.state;
     const info = store.assets.outputInfo;
@@ -31,7 +38,7 @@ export default {
               stat('Frame order', s.interlace.reverse ? 'reversed' : 'normal'))
             : hint('No interlaced file yet; generate it in Step 6.'),
           out ? h('div', { class: 'btn-row', style: { marginTop: '10px' } }, button('Download interlaced.png', () => downloadBlob(out, 'interlaced.png'), { kind: 'primary' })) : null,
-          hint(`Print from an app that respects the embedded ${s.printer.ppi} ppi (e.g. IrfanView "original size (from DPI)", GIMP or Photoshop; many photo viewers rescale). Measure the print with a ruler: it should match the card size + bleed exactly.`),
+          tip('Print at actual size, then check it with a ruler.', `Use an app that respects the embedded ${s.printer.ppi} ppi, such as IrfanView ("original size (from DPI)"), GIMP or Photoshop. Many photo viewers rescale.`, 'The crop marks should be exactly the card size apart.'),
         ),
         card('Printer checklist',
           h('ul', { class: 'checklist' }, CHECKLIST.map(([k, text]) => h('li', {}, checkbox({
@@ -42,7 +49,8 @@ export default {
       ),
       h('div', { class: 'cols' },
         card('Mounting',
-          h('ol', { class: 'steps-list' },
+          tip(s.orientation === 'vertical' ? 'Ridged side up, ridges running top to bottom.' : 'Ridged side up, ridges running left to right.'),
+          more(h('ol', { class: 'steps-list' },
             h('li', {}, 'Let the print dry fully (at least 1 hour for dye inks; overnight is safer).'),
             h('li', {}, 'Find the ridge direction: run a fingernail across the lens; the ridged side faces you, smooth side down.'),
             h('li', {}, s.orientation === 'vertical' ? 'Turn the lens so the ridges run vertically (top to bottom of the card).' : 'Turn the lens so the ridges run horizontally (left to right).'),
@@ -50,7 +58,7 @@ export default {
             h('li', {}, 'Tape one edge down once it looks right.'),
             h('li', {}, 'Lift the free side, apply adhesive (double-sided film or spray), and roll it down from the taped edge with a brayer to push out air.'),
             h('li', {}, 'Trim along the crop marks with a sharp knife and steel ruler, through the lens and print together.'),
-          ),
+          )),
         ),
         card('Troubleshooting',
           h('dl', { class: 'trouble' },

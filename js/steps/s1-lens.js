@@ -1,4 +1,4 @@
-import { h, card, row, hint, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, guide, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, pitchPx, MEDIA_PRESETS, testSheetMm, printableMm } from '../core/geometry.js';
 import { SLICES, applySlice } from '../core/schema.js';
 import { makePitchTest, makeAngleTest, makeFlipTest, pitchCandidates, ANGLE_TEST_FRAMES } from '../testsheets.js';
@@ -9,7 +9,18 @@ export default {
   id: 1,
   title: 'Printer & lens',
   subtitle: 'Calibrate once',
-  intro: 'Calibrate your printer and lens. You only do this once per lens: export the profile at the end and import it for every new card.',
+  intro: 'Measure your printer and lens once, then reuse the profile for every card.',
+  guide: [
+    ['printer', 'Set up the printer', 'Resolution and paper'],
+    ['lens', 'Describe the lens', 'LPI on the packet'],
+    ['pitchTest', 'Pitch test', 'Find the stripe-free band'],
+    ['phoneTilt:32:3', 'Viewing angle', 'Tilt with a phone level'],
+  ],
+  details: [
+    'Calibration is about the hardware, not the card: the true lens pitch (it is never exactly what the packet says) and how far you tilt before the picture repeats.',
+    'Do it once per lens and printer. Export lens-profile.json at the bottom of this step and import it for every new card.',
+    'Tip: print the test sheets on plain paper first to save photo paper.',
+  ],
   render(root, { store, rerender }) {
     const s = () => store.state;
     const set = (fn) => store.update(fn);
@@ -22,8 +33,10 @@ export default {
       selectField({
         label: 'Print resolution', value: s().printer.ppi, options: RESOLUTIONS,
         onChange: (v) => set((st) => { st.printer.ppi = Number(v); }),
-        hint: "Use your printer's native input resolution: typically 720 ppi for Epson inkjets, 600 ppi for Canon and HP. Files at this resolution reach the paper without resampling.",
       }),
+      tip("Use your printer's native resolution.",
+        'Typically 720 ppi for Epson inkjets, 600 ppi for Canon and HP.',
+        "At the native resolution the driver prints the file 1:1. Any other value gets resampled, which blurs the fine strips into each other (ghosting)."),
     );
 
     // ---------- 2 · paper ----------
@@ -33,7 +46,10 @@ export default {
         numberField({ label: 'Width', unit: 'mm', value: s().media.widthMm, min: 50, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.media.widthMm = v; st.media.name = null; }) }),
         numberField({ label: 'Height', unit: 'mm', value: s().media.heightMm, min: 50, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.media.heightMm = v; st.media.name = null; }) }),
       ),
-      numberField({ label: 'Unprintable margin', unit: 'mm', value: s().media.marginMm, min: 0, max: 20, step: 0.5, onChange: (v) => v >= 0 && set((st) => { st.media.marginMm = v; }), hint: 'Borderless printing stays off (it enlarges the image), so keep a few mm clear.' }),
+      numberField({ label: 'Unprintable margin', unit: 'mm', value: s().media.marginMm, min: 0, max: 20, step: 0.5, onChange: (v) => v >= 0 && set((st) => { st.media.marginMm = v; }) }),
+      tip('The paper you load for test sheets and cards.',
+        'Step 6 can tile several cards on one sheet of this paper.',
+        'Keep borderless printing off: it enlarges the image slightly, which breaks the pitch. The unprintable margin keeps everything inside the area the printer can reach.'),
     );
     renderMedia();
     const paper = card('2 · Paper',
@@ -46,19 +62,20 @@ export default {
           else set((st) => { st.media.name = null; });
           renderMedia();
         },
-        hint: 'The paper you load. Test sheets print on it, and Step 6 can tile several cards on one sheet.',
       }),
       mediaFields,
     );
 
     // ---------- 3 · lens ----------
     const lens = card('3 · Lens',
-      numberField({ label: 'Nominal LPI', unit: 'LPI', value: s().lens.lpiNominal, step: 0.1, min: 10, onChange: (v) => v > 0 && set((st) => { st.lens.lpiNominal = v; }), hint: 'As sold, e.g. 75. The pitch test measures the true value.' }),
+      numberField({ label: 'Nominal LPI', unit: 'LPI', value: s().lens.lpiNominal, step: 0.1, min: 10, onChange: (v) => v > 0 && set((st) => { st.lens.lpiNominal = v; }) }),
       row(
         numberField({ label: 'Lens sheet width', unit: 'mm', value: s().lens.sheetWidthMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetWidthMm = v; }) }),
         numberField({ label: 'Lens sheet height', unit: 'mm', value: s().lens.sheetHeightMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetHeightMm = v; }) }),
       ),
-      hint('Test sheets match the lens sheet size (100 × 150 mm if blank) so the whole lens can sit on them.'),
+      tip('From the packet. The pitch test finds the true value.',
+        'LPI = lenses per inch. A 75 LPI sheet is sold as 75 but often measures 74.8–75.2 on your printer.',
+        'Lens sheet size is optional. Test sheets are printed at this size (100 × 150 mm if blank) so the whole lens can sit on them.'),
     );
 
     // ---------- 4 · pitch test ----------
@@ -69,7 +86,13 @@ export default {
       pitchInfo.textContent = n ? `${n} bands from ${t.pitchFrom} to ${t.pitchTo} LPI on a ${sheetLabel()} sheet.` : 'Check the range: "from" must be below "to".';
     };
     const pitch = card('4 · Pitch test → measured LPI',
-      hint('Print the sheet, lay the lens on it with the ridges parallel to the lines, and look straight down. Most bands show broad stripes; the band that looks evenly toned across its width matches your lens.'),
+      guide([
+        ['pitchLay', 'Print, lay the lens on', 'Ridges parallel to the lines'],
+        ['pitchTest', 'Find the even band', 'No broad stripes'],
+      ]),
+      tip("Type the matching band's number below.",
+        'Look straight down from about 40 cm. Most bands show broad dark and light stripes (beating). The band whose pitch matches your lens looks evenly toned across its whole width.',
+        'Two neighbouring bands look equally good? Use the value between them. Nothing looks even? Widen the range and print again.'),
       row(
         numberField({ label: 'From', unit: 'LPI', value: s().tests.pitchFrom, step: 0.01, onChange: (v) => { set((st) => { st.tests.pitchFrom = v; }); refreshPitchInfo(); } }),
         numberField({ label: 'To', unit: 'LPI', value: s().tests.pitchTo, step: 0.01, onChange: (v) => { set((st) => { st.tests.pitchTo = v; }); refreshPitchInfo(); } }),
@@ -92,7 +115,15 @@ export default {
 
     // ---------- 5 · viewing angle ----------
     const angle = card('5 · Viewing-angle test → measured angle',
-      hint(`${ANGLE_TEST_FRAMES} solid colours numbered 1–${ANGLE_TEST_FRAMES}, interlaced at the LPI in use (measured, once entered). Put the lens on with the ridges vertical and turn the sheet slowly left to right at arm's length. The angle you turn from one appearance of colour 1 to the next is the viewing angle.`),
+      guide([
+        ['phoneTape', 'Tape it to a phone', 'Lens on, ridges side to side'],
+        ['phoneTilt:12:0', 'Tilt until colour 1', 'Read the level: e.g. 12°'],
+        ['phoneTilt:44:0', 'Tilt to the next 1', '44 − 12 = 32° viewing angle'],
+      ]),
+      tip('Enter the difference between the two readings.',
+        `The sheet shows ${ANGLE_TEST_FRAMES} numbered colours. Line the lens up with the sheet and tape them together onto the back of your phone, ridges horizontal (side to side).`,
+        'Open a level or inclinometer app (iPhone: Measure → Level). Close one eye, keep your head still and tilt the phone toward you. Note the angle when colour 1 first appears, keep tilting through 2…8, and note the angle when colour 1 first appears again.',
+        'For a steadier number, measure two full cycles and halve it, and average two or three tries. If the colours blur together instead of switching, redo the pitch test first.'),
       h('div', { class: 'btn-row' },
         button('Download viewing-angle test', async () => {
           const blob = await makeAngleTest(s(), (p) => prog.set(p, 'Interlacing angle test…'));
@@ -107,7 +138,8 @@ export default {
 
     // ---------- 6 · flip ----------
     const flip = card('6 · Final check (optional)',
-      hint('A two-frame A/B flip printed with your measured values. A clean switch between A and B, with no stripes, confirms the calibration before you spend photo paper on a card.'),
+      guide([['flip', 'A clean A ↔ B flip', 'No stripes, no ghost letter']]),
+      tip('Prints with your measured values: a last check before photo paper.'),
       h('div', { class: 'btn-row' },
         button('Download A/B flip test', async () => {
           const blob = await makeFlipTest(s(), (p) => prog.set(p, 'Interlacing flip test…'));
@@ -153,7 +185,7 @@ export default {
           toast('Lens profile imported.');
           rerender();
         }, { kind: 'ghost' })),
-      hint('The profile holds printer resolution, paper, lens and measured values. Card design lives in Step 2.'),
+      tip('Reuse this file for every card with this lens.', 'It holds printer resolution, paper, lens and the measured values. The card design lives in Step 2.'),
     );
 
     root.append(

@@ -1,4 +1,4 @@
-import { h, card, row, hint, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
 import { bleedBoxPx, frameGeometry, lpiInUse, mmToPx, pxToMm, tileLayout } from '../core/geometry.js';
 import { visibleFrameAtAngle } from '../core/interlace.js';
 import { makeCanvas, ctx2d, sizeForDisplay } from '../canvas.js';
@@ -38,7 +38,17 @@ export default {
   id: 6,
   title: 'Slice & interlace',
   subtitle: 'Make the print file',
-  intro: 'Interlace the frames into a print file at the exact lens pitch. The PNG carries its ppi, so it prints at true size.',
+  intro: 'Slice the frames into strips that fit your lens exactly.',
+  guide: [
+    ['interlace', 'Interlace', 'Frames become strips under each lens'],
+    ['marks', 'Marks', 'Crop marks and an alignment strip'],
+    ['tilt', 'Preview', 'Tilt simulator shows each view'],
+  ],
+  details: [
+    'The PNG carries its print resolution, so it prints at true size from an app that respects it.',
+    'Registration strip: outside the card, one strip per lens is black. With the lens aligned, the whole strip goes dark at once as you tilt; diagonal bands mean the lens is rotated.',
+    'Bring your own frames: name them so they sort in viewing order (frame_01.png, frame_02.png, …). They are cover-fitted to the card.',
+  ],
   render(root, { store }) {
     const s = () => store.state;
     const prog = progress();
@@ -144,10 +154,10 @@ export default {
     };
 
     const opts = card('Options',
-      checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'A lens flips the image under it. Toggle if 3D looks inside-out or animation runs backwards.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); drawTilt(); } }),
-      checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks at the trim plus registration strips outside the bleed (frame-1 slot of every lens is black).', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
+      checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'Toggle if 3D looks inside-out.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); drawTilt(); } }),
+      checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks + lens alignment strip.', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
       numberField({ label: 'Marks margin', unit: 'mm', value: s().interlace.marginMm, step: 1, min: 4, max: 20, onChange: (v) => { if (v >= 4) { store.update((st) => { st.interlace.marginMm = v; }); invalidate(); } } }),
-      checkbox({ label: `Tile cards on the paper (${s().media.name || `${s().media.widthMm} × ${s().media.heightMm} mm`})`, checked: s().interlace.tileOnMedia, hint: 'Fills the sheet set in Step 1 with copies sharing one continuous lens grid.', onChange: (v) => { store.update((st) => { st.interlace.tileOnMedia = v; }); invalidate(); } }),
+      checkbox({ label: `Tile cards on the paper (${s().media.name || `${s().media.widthMm} × ${s().media.heightMm} mm`})`, checked: s().interlace.tileOnMedia, hint: 'Copies share one lens grid.', onChange: (v) => { store.update((st) => { st.interlace.tileOnMedia = v; }); invalidate(); } }),
       slider({ label: 'Phase offset', value: s().interlace.phaseOffset, min: 0, max: 1, step: 0.05, format: (v) => `${v.toFixed(2)} lens`, onChange: (v) => { store.update((st) => { st.interlace.phaseOffset = v; }); invalidate(); } }),
     );
 
@@ -177,7 +187,7 @@ export default {
                 invalidate();
                 toast(`Imported ${n} frames (sorted by file name).`);
               }, { kind: 'ghost' })),
-            hint('Own frames? Name them so they sort in viewing order (frame_01.png, frame_02.png, …). They are cover-fitted to the card.'),
+            hint('Own frames? Name them frame_01.png, frame_02.png, …'),
           ),
           card('Generate',
             h('div', { class: 'btn-row' }, button('Generate interlaced.png', async () => {

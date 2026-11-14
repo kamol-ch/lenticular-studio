@@ -1,5 +1,7 @@
 // Tiny DOM helpers and form controls.
 
+import { ART } from './art.js';
+
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -178,4 +180,33 @@ export const fmt = {
 
 export function stat(label, value) {
   return h('div', { class: 'stat' }, h('span', { class: 'stat-label' }, label), h('span', { class: 'stat-value' }, value));
+}
+
+// ---------- visual guidance ----------
+
+/** An illustration by name; "name:a:b" passes a and b as arguments. */
+export function art(spec) {
+  const [name, ...args] = spec.split(':');
+  return h('div', { class: 'art-wrap', html: ART[name](...args) });
+}
+
+/** Numbered picture strip: items = [artName, title, caption?]. */
+export function guide(items) {
+  return h('ol', { class: 'guide' }, items.map(([name, title, text], i) => h('li', { class: 'guide-item' },
+    art(name),
+    h('div', { class: 'guide-cap' },
+      h('span', { class: 'guide-n' }, i + 1),
+      h('div', {}, h('strong', {}, title), text ? h('span', {}, text) : null)))));
+}
+
+/** Expandable box for the detail most people can skip. */
+export function more(...children) {
+  return h('details', { class: 'more' },
+    h('summary', {}, 'More detail'),
+    h('div', { class: 'more-body' }, children.flat().map((c) => (typeof c === 'string' ? h('p', {}, c) : c))));
+}
+
+/** One short line, with optional detail behind "More detail". */
+export function tip(short, ...detail) {
+  return h('div', { class: 'tip' }, h('p', { class: 'hint' }, short), detail.length ? more(...detail) : null);
 }

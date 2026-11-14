@@ -1,4 +1,4 @@
-import { h, card, row, hint, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, more, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, frameGeometry, orientationForEffect, printableMm, fitsOn } from '../core/geometry.js';
 import { computePlan } from '../core/planner.js';
 import { maxMotionMmPerFrame } from '../core/motion.js';
@@ -58,7 +58,18 @@ export default {
   id: 2,
   title: 'Card & frame plan',
   subtitle: 'Effect, size, frames',
-  intro: 'Design this card: choose the effect and size, then see how many frames and how much depth or motion the lens can show before it blurs.',
+  intro: 'Choose the effect and card size; the plan shows what the lens can carry.',
+  guide: [
+    ['effect3d', '3D', 'Vertical ridges: each eye sees a view'],
+    ['effectAnim', 'Animation', 'Horizontal ridges: tilt to play'],
+    ['bleed', 'Card + bleed', 'Extra image past the cut line'],
+    ['framesEyes', 'Frames', 'How many views fit in a lens'],
+  ],
+  details: [
+    '3D needs vertical ridges, so your two eyes look through different strips and see different views. Animation uses horizontal ridges, so both eyes see the same frame and it changes as you tilt the card toward you.',
+    'Frames between the eyes: how many frames apart your two eyes are at viewing distance. Under 1.5 the 3D looks weak.',
+    'Depth budget: neighbouring frames should differ by about one lens width at most. More than that and the image blurs or ghosts.',
+  ],
   render(root, { store, rerender }) {
     const s = () => store.state;
     const set = (fn) => store.update(fn);
@@ -70,7 +81,6 @@ export default {
     const ridgeSel = selectField({
       label: 'Ridge direction', value: s().orientation, options: RIDGES,
       onChange: (v) => set((st) => { st.orientation = v; }),
-      hint: 'Set automatically from the effect. Lay the lens this way on the print.',
     });
     const effectSel = selectField({
       label: 'Effect', value: s().effect, options: EFFECTS,
@@ -78,7 +88,6 @@ export default {
         set((st) => { st.effect = v; st.orientation = orientationForEffect(v); });
         ridgeSel.querySelector('select').value = s().orientation;
       },
-      hint: '3D shows depth because each eye sees a different frame. Animation changes as you tilt the card.',
     });
 
     // ---------- card size ----------
@@ -127,13 +136,13 @@ export default {
         const n = Math.round(v);
         if (n >= 2 && n <= 32) store.update((st) => { st.plan.frames = n; });
       },
-      hint: 'Default 8. More frames = smoother, but each strip gets narrower.',
+      hint: 'Default 8. More = smoother, narrower strips.',
     });
 
     root.append(
       h('div', { class: 'cols' },
-        card('Effect', effectSel, ridgeSel),
-        card('Card', preset, sizeFields, hint('Bleed is extra image beyond the trim line, so small cutting errors never show white.')),
+        card('Effect', effectSel, ridgeSel, tip('The ridge direction follows the effect.', 'Lay the lens with its ridges this way on the print. Override it only if you know why: 3D with horizontal ridges shows no depth.')),
+        card('Card', preset, sizeFields, tip('Bleed is extra picture past the cut line.', 'If your cut drifts a little, you cut into the bleed instead of exposing white paper. 2–3 mm is typical.')),
       ),
       cardWarn,
       h('div', { class: 'cols-wide' },
@@ -143,7 +152,7 @@ export default {
           numberField({
             label: 'Depth budget', unit: 'lens widths / frame', value: s().plan.budgetLensPerFrame, step: 0.1, min: 0.1, max: 3,
             onChange: (v) => v > 0 && store.update((st) => { st.plan.budgetLensPerFrame = v; }),
-            hint: 'Rule of thumb: neighbouring frames should differ by at most about one lens width. Lower = sharper, flatter.',
+            hint: 'Lower = sharper but flatter.',
           }),
           row(
             numberField({ label: 'Viewing distance', unit: 'mm', value: s().plan.viewDistMm, step: 10, min: 100, onChange: (v) => v > 0 && store.update((st) => { st.plan.viewDistMm = v; }) }),
@@ -152,8 +161,8 @@ export default {
           numberField({
             label: 'Frame samples per lens', value: s().plan.samplesPerLens, step: 1, min: 1, max: 8,
             onChange: (v) => v >= 1 && store.update((st) => { st.plan.samplesPerLens = Math.round(v); }),
-            hint: 'Working resolution along the interlace axis. 2–3 is plenty; each lens shows one sample per frame.',
           }),
+          more('Viewing distance and eye separation set how many frames apart your eyes are. Samples per lens is the working resolution of the frames across the ridges; 2–3 is plenty because each lens shows one sample of each frame.'),
         ),
       ),
       card('Import / export',
@@ -170,7 +179,7 @@ export default {
             rerender();
           }, { kind: 'ghost' }),
         ),
-        hint('Changing frames, card size or lens settings makes existing frames out of date; rebuild them in Step 5 or 6.'),
+        tip('Changing these makes built frames out of date.', 'Rebuild them in Step 5 or 6 after changing frames, card size or lens settings.'),
       ),
     );
     refresh();

@@ -1,4 +1,4 @@
-import { h, card, row, hint, numberField, selectField, slider, checkbox, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
+import { h, card, row, hint, tip, numberField, selectField, slider, checkbox, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
 import { bleedBoxPx, mmToPx } from '../core/geometry.js';
 import { EFFECT_TYPES, EASINGS, newEffect, maxMotionMmPerFrame } from '../core/motion.js';
 import { frameOrder, evenlySpacedTimes, estimateShift, toGray } from '../core/sequence.js';
@@ -73,7 +73,16 @@ export default {
   title: 'Animation',
   subtitle: 'Motion or video',
   optional: true,
-  intro: 'Optional. Add subtle motion to a layer or a painted area, or turn a short video clip into frames.',
+  intro: 'Optional. Make part of the card move as you tilt it.',
+  guide: [
+    ['motion', 'Simple motion', 'Bob, drift, sway or fade a layer'],
+    ['mask', 'Or paint a mask', 'Move just one part of a scan'],
+    ['video', 'Or use a clip', 'A 2–3 s video becomes frames'],
+  ],
+  details: [
+    'Small motions read best through a lens. Moving more than about one lens width between frames causes ghosting; the warning below tells you when.',
+    'Animation looks best with horizontal ridges (set in Step 2). Combined with 3D (vertical ridges), keep motion very subtle.',
+  ],
   render(root, { store, go }) {
     const s = () => store.state;
     const prog = progress();
@@ -193,7 +202,7 @@ export default {
     );
     const paintToggle = checkbox({
       label: 'Paint mask', checked: false,
-      hint: 'Brush over the part that should move (e.g. a flower head). Effects targeting "Painted mask" apply to it.',
+      hint: 'Brush over the part that should move.',
       onChange: (v) => { painting = v; maskTools.hidden = !v; stage.classList.toggle('crosshair', v); paint(); },
     });
 
@@ -279,13 +288,13 @@ export default {
     }, { kind: 'small' });
 
     const clipPanel = card('From video clip',
-      hint('Make a short clip in any video tool (2–3 s of gentle motion works best), then pick the section to use.'),
+      tip('Pick a 2–3 s stretch of gentle motion.', 'Make the clip in any video tool. Set start and end while scrubbing the video, then extract. Ping-pong plays the clip forward then back, so tilting either way looks seamless.'),
       h('div', { class: 'btn-row' }, button('Choose video…', async () => { const [f] = await pickFiles({ accept: 'video/*' }); if (f) loadVideo(f); }), clipInfo),
       video,
       row(startF, endF),
       h('div', { class: 'btn-row' }, setFromVideo('start', startF), setFromVideo('end', endF)),
-      checkbox({ label: 'Ping-pong loop', checked: s().animation.clip.pingPong, hint: 'Play forward then back so tilting either way looks seamless.', onChange: (v) => store.update((st) => { st.animation.clip.pingPong = v; }) }),
-      checkbox({ label: 'Align to first frame', checked: s().animation.clip.align, hint: 'Removes small camera drift (translation only).', onChange: (v) => store.update((st) => { st.animation.clip.align = v; }) }),
+      checkbox({ label: 'Ping-pong loop', checked: s().animation.clip.pingPong, onChange: (v) => store.update((st) => { st.animation.clip.pingPong = v; }) }),
+      checkbox({ label: 'Align to first frame', checked: s().animation.clip.align, onChange: (v) => store.update((st) => { st.animation.clip.align = v; }) }),
       h('div', { class: 'btn-row' }, button(`Extract ${n()} frames`, async () => {
         const f = store.assets.clipFile;
         if (!f) throw new Error('Choose a video first.');
@@ -325,7 +334,7 @@ export default {
           h('div', { class: 'btn-row', style: { marginTop: '10px' } }, playBtn,
             slider({ label: 'Speed', value: s().animation.previewFps, min: 2, max: 24, step: 1, format: (v) => `${v} fps`, onChange: (v) => store.update((st) => { st.animation.previewFps = v; }) })),
           thumbs,
-          hint('The preview bounces back and forth, like tilting the card.'),
+          hint('Bounces back and forth, like tilting the card.'),
         ),
       ),
       card('Next',
@@ -338,7 +347,7 @@ export default {
             toast('Final frames built.');
             go(s().depth.mode === 'none' ? 6 : 5);
           }, { kind: 'primary' }),
-          hint('Want 3D as well? Continue to Step 5; frames will combine motion and depth.'),
+          hint('Want 3D too? Continue to Step 5.'),
         ),
         h('h4', {}, 'Import / export'),
         h('div', { class: 'btn-row' },
