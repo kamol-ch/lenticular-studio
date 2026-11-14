@@ -241,8 +241,8 @@ export default {
         const mm = maxMotionMmPerFrame(s().animation.effects.filter((e) => e.enabled !== false), n());
         ws.unshift({ level: 'info', text: `Largest move between frames: ${mmToPx(mm, s().printer.ppi).toFixed(1)} px (budget ${p.maxShiftPxPerFrame.toFixed(1)} px). Small motions read best through a lens.` });
       }
-      if (s().animation.mode !== 'none' && s().lens.orientation === 'vertical' && s().effect === 'animation') {
-        ws.push({ level: 'warn', text: 'Animation usually needs horizontal ridges so both eyes see the same frame. Change orientation in Step 1.' });
+      if (s().animation.mode !== 'none' && s().orientation === 'vertical' && s().effect === 'animation') {
+        ws.push({ level: 'warn', text: 'Animation usually needs horizontal ridges so both eyes see the same frame. Change the ridge direction in Step 2.' });
       }
       motionWarn.replaceChildren(warnings(ws) || '');
     };

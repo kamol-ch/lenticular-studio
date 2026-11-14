@@ -27,7 +27,7 @@ export default {
             ? h('div', { class: 'stats' },
               stat('Print size', `${fmt.n(pxToMm(info.width, s.printer.ppi), 1)} × ${fmt.n(pxToMm(info.height, s.printer.ppi), 1)} mm`),
               stat('Resolution', `${s.printer.ppi} ppi (embedded)`),
-              stat('Lens', `${fmt.n(lpiInUse(s.lens), 2)} LPI, ${s.lens.orientation}`),
+              stat('Lens', `${fmt.n(lpiInUse(s.lens), 2)} LPI, ${s.orientation}`),
               stat('Frame order', s.interlace.reverse ? 'reversed' : 'normal'))
             : hint('No interlaced file yet; generate it in Step 6.'),
           out ? h('div', { class: 'btn-row', style: { marginTop: '10px' } }, button('Download interlaced.png', () => downloadBlob(out, 'interlaced.png'), { kind: 'primary' })) : null,
@@ -45,7 +45,7 @@ export default {
           h('ol', { class: 'steps-list' },
             h('li', {}, 'Let the print dry fully (at least 1 hour for dye inks; overnight is safer).'),
             h('li', {}, 'Find the ridge direction: run a fingernail across the lens; the ridged side faces you, smooth side down.'),
-            h('li', {}, s.lens.orientation === 'vertical' ? 'Turn the lens so the ridges run vertically (top to bottom of the card).' : 'Turn the lens so the ridges run horizontally (left to right).'),
+            h('li', {}, s.orientation === 'vertical' ? 'Turn the lens so the ridges run vertically (top to bottom of the card).' : 'Turn the lens so the ridges run horizontally (left to right).'),
             h('li', {}, 'Lay the lens on the print. Align a ridge with a registration strip: when aligned, the whole strip goes dark or light at once as you tilt; diagonal bands mean it is rotated.'),
             h('li', {}, 'Tape one edge down once it looks right.'),
             h('li', {}, 'Lift the free side, apply adhesive (double-sided film or spray), and roll it down from the taped edge with a brayer to push out air.'),

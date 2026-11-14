@@ -31,17 +31,17 @@ export function buildSampleMap(outLen, frameLen) {
 }
 
 /**
- * Page layout: one card (optionally with a marks margin) or a grid on A4.
+ * Page layout: one card (optionally with a marks margin) or a grid on the paper.
  * Placements are the top-left corners of each card's bleed box, in page px.
  */
-export function planPage({ outW, outH, marginPx = 0, tileA4 = false, ppi = 720 }) {
+export function planPage({ outW, outH, marginPx = 0, tile = false, media, ppi = 720 }) {
   const cellW = outW + 2 * marginPx;
   const cellH = outH + 2 * marginPx;
-  if (!tileA4) {
+  if (!tile) {
     return { pageW: cellW, pageH: cellH, placements: [{ x: marginPx, y: marginPx }], cols: 1, rows: 1 };
   }
-  const t = tileLayout(cellW, cellH, ppi);
-  if (t.cols < 1 || t.rows < 1) throw new Error('Card (with marks) is larger than A4; turn off tiling or reduce the card size.');
+  const t = tileLayout(cellW, cellH, ppi, media);
+  if (t.cols < 1 || t.rows < 1) throw new Error('The card (with marks) does not fit on the paper; turn off tiling or choose larger paper.');
   const offX = Math.floor((t.pageW - t.cols * cellW) / 2);
   const offY = Math.floor((t.pageH - t.rows * cellH) / 2);
   const placements = [];
@@ -64,7 +64,7 @@ export function planPage({ outW, outH, marginPx = 0, tileA4 = false, ppi = 720 }
  */
 export function createInterlacer({
   frames, outW, outH, pitch, orientation = 'vertical', reverse = false, phaseOffset = 0,
-  marks = false, marginMm = 8, tileA4 = false, ppi = 720, bleedPx = 0,
+  marks = false, marginMm = 8, tile = false, media, ppi = 720, bleedPx = 0,
 }) {
   const n = frames.length;
   if (n < 1) throw new Error('No frames to interlace.');
@@ -74,7 +74,7 @@ export function createInterlacer({
     if (f.width !== fw || f.height !== fh) throw new Error('All frames must be the same size.');
   }
   const marginPx = marks ? Math.round(mmToPx(marginMm, ppi)) : 0;
-  const page = planPage({ outW, outH, marginPx, tileA4, ppi });
+  const page = planPage({ outW, outH, marginPx, tile, media, ppi });
   const { pageW, pageH, placements } = page;
   const vertical = orientation !== 'horizontal';
 

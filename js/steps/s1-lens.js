@@ -1,93 +1,75 @@
 import { h, card, row, hint, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
-import { orientationForEffect, bleedBoxPx, lpiInUse, pitchPx } from '../core/geometry.js';
+import { lpiInUse, pitchPx, MEDIA_PRESETS, testSheetMm, printableMm } from '../core/geometry.js';
 import { SLICES, applySlice } from '../core/schema.js';
-import { makePitchTest, makeAngleTest, makeFlipTest, pitchCandidates } from '../testsheets.js';
+import { makePitchTest, makeAngleTest, makeFlipTest, pitchCandidates, ANGLE_TEST_FRAMES } from '../testsheets.js';
 
-const PRESETS = [
-  ['', 'Custom…'],
-  ['54x85.6', 'Credit card 54 × 85.6 mm'],
-  ['63x88', 'Trading card 63 × 88 mm'],
-  ['100x150', '10 × 15 cm (4 × 6 in)'],
-  ['105x148', 'A6 105 × 148 mm'],
-  ['127x178', '5 × 7 in'],
-];
+const RESOLUTIONS = [[720, '720 ppi'], [600, '600 ppi'], [1440, '1440 ppi (experimental)'], [1200, '1200 ppi (experimental)'], [300, '300 ppi']];
 
 export default {
   id: 1,
-  title: 'Lens & printer',
-  subtitle: 'Calibrate',
-  intro: 'Set up your lens, printer and card size, then print the calibration sheets and enter what you measure.',
+  title: 'Printer & lens',
+  subtitle: 'Calibrate once',
+  intro: 'Calibrate your printer and lens. You only do this once per lens: export the profile at the end and import it for every new card.',
   render(root, { store, rerender }) {
     const s = () => store.state;
     const set = (fn) => store.update(fn);
-
-    const summary = h('div', { class: 'stats' });
-    const sizeWarn = h('div');
-    const refreshSummary = () => {
-      const st = s();
-      const b = bleedBoxPx(st.card, st.printer.ppi);
-      const lpi = lpiInUse(st.lens);
-      summary.replaceChildren(
-        stat('LPI in use', `${fmt.n(lpi, 2)}${st.lens.lpiMeasured ? ' (measured)' : ' (nominal)'}`),
-        stat('Pixels per lens', fmt.n(pitchPx(st.printer.ppi, lpi), 3)),
-        stat('Output incl. bleed', `${b.w} × ${b.h} px`),
-        stat('Ridges', st.lens.orientation),
-      );
-      const ws = [];
-      const sw = st.lens.sheetWidthMm, sh = st.lens.sheetHeightMm;
-      if (sw && sh) {
-        const fits = (st.card.widthMm <= sw && st.card.heightMm <= sh) || (st.card.widthMm <= sh && st.card.heightMm <= sw);
-        if (!fits) ws.push({ level: 'warn', text: `The card (${st.card.widthMm} × ${st.card.heightMm} mm) is larger than the lens sheet (${sw} × ${sh} mm).` });
-      }
-      if (st.printer.ppi > 720) ws.push({ level: 'info', text: `${st.printer.ppi} ppi is experimental; compare against a print at your printer's native resolution.` });
-      sizeWarn.replaceChildren(warnings(ws) || '');
-    };
-
-    const preset = selectField({
-      label: 'Preset', value: '', options: PRESETS,
-      onChange: (v) => {
-        if (!v) return;
-        const [w, hh] = v.split('x').map(Number);
-        set((st) => { st.card.widthMm = w; st.card.heightMm = hh; });
-        rerenderCard();
-      },
-    });
-    const cardFields = h('div');
-    const rerenderCard = () => cardFields.replaceChildren(row(
-      numberField({ label: 'Width', unit: 'mm', value: s().card.widthMm, min: 10, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.card.widthMm = v; }) }),
-      numberField({ label: 'Height', unit: 'mm', value: s().card.heightMm, min: 10, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.card.heightMm = v; }) }),
-      numberField({ label: 'Bleed', unit: 'mm', value: s().card.bleedMm, min: 0, step: 0.5, onChange: (v) => v >= 0 && set((st) => { st.card.bleedMm = v; }) }),
-    ));
-    rerenderCard();
-
-    const orientSel = selectField({
-      label: 'Ridge orientation', value: s().lens.orientation,
-      options: [['vertical', 'Vertical ridges (3D)'], ['horizontal', 'Horizontal ridges (animation)']],
-      onChange: (v) => set((st) => { st.lens.orientation = v; }),
-      hint: 'Vertical ridges give each eye a different view (3D). Horizontal ridges flip as you tilt the card toward you (animation).',
-    });
-
-    const effect = selectField({
-      label: 'Effect type', value: s().effect,
-      options: [['3d', '3D depth'], ['animation', 'Animation (flip / motion)'], ['3d-motion', '3D + subtle motion']],
-      onChange: (v) => {
-        set((st) => { st.effect = v; st.lens.orientation = orientationForEffect(v); });
-        orientSel.querySelector('select').value = s().lens.orientation;
-      },
-    });
-
-    // ----- tests -----
     const prog = progress();
+
+    const sheetLabel = () => { const t = testSheetMm(s().lens, s().media); return `${fmt.n(t.w, 0)} × ${fmt.n(t.h, 0)} mm`; };
+
+    // ---------- 1 · printer ----------
+    const printer = card('1 · Printer resolution',
+      selectField({
+        label: 'Print resolution', value: s().printer.ppi, options: RESOLUTIONS,
+        onChange: (v) => set((st) => { st.printer.ppi = Number(v); }),
+        hint: "Use your printer's native input resolution: typically 720 ppi for Epson inkjets, 600 ppi for Canon and HP. Files at this resolution reach the paper without resampling.",
+      }),
+    );
+
+    // ---------- 2 · paper ----------
+    const mediaFields = h('div');
+    const renderMedia = () => mediaFields.replaceChildren(
+      row(
+        numberField({ label: 'Width', unit: 'mm', value: s().media.widthMm, min: 50, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.media.widthMm = v; st.media.name = null; }) }),
+        numberField({ label: 'Height', unit: 'mm', value: s().media.heightMm, min: 50, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.media.heightMm = v; st.media.name = null; }) }),
+      ),
+      numberField({ label: 'Unprintable margin', unit: 'mm', value: s().media.marginMm, min: 0, max: 20, step: 0.5, onChange: (v) => v >= 0 && set((st) => { st.media.marginMm = v; }), hint: 'Borderless printing stays off (it enlarges the image), so keep a few mm clear.' }),
+    );
+    renderMedia();
+    const paper = card('2 · Paper',
+      selectField({
+        label: 'Paper size', value: s().media.name || '',
+        options: [...MEDIA_PRESETS.map(([n, w, hh]) => [n, `${n} (${w} × ${hh} mm)`]), ['', 'Custom…']],
+        onChange: (v) => {
+          const p = MEDIA_PRESETS.find(([n]) => n === v);
+          if (p) set((st) => { st.media.name = p[0]; st.media.widthMm = p[1]; st.media.heightMm = p[2]; });
+          else set((st) => { st.media.name = null; });
+          renderMedia();
+        },
+        hint: 'The paper you load. Test sheets print on it, and Step 6 can tile several cards on one sheet.',
+      }),
+      mediaFields,
+    );
+
+    // ---------- 3 · lens ----------
+    const lens = card('3 · Lens',
+      numberField({ label: 'Nominal LPI', unit: 'LPI', value: s().lens.lpiNominal, step: 0.1, min: 10, onChange: (v) => v > 0 && set((st) => { st.lens.lpiNominal = v; }), hint: 'As sold, e.g. 75. The pitch test measures the true value.' }),
+      row(
+        numberField({ label: 'Lens sheet width', unit: 'mm', value: s().lens.sheetWidthMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetWidthMm = v; }) }),
+        numberField({ label: 'Lens sheet height', unit: 'mm', value: s().lens.sheetHeightMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetHeightMm = v; }) }),
+      ),
+      hint('Test sheets match the lens sheet size (100 × 150 mm if blank) so the whole lens can sit on them.'),
+    );
+
+    // ---------- 4 · pitch test ----------
     const pitchInfo = h('p', { class: 'hint' });
     const refreshPitchInfo = () => {
       const t = s().tests;
       const n = pitchCandidates(t.pitchFrom, t.pitchTo, t.pitchStep).length;
-      pitchInfo.textContent = n ? `${n} bands from ${t.pitchFrom} to ${t.pitchTo} LPI, printed on a ${s().card.widthMm} × ${s().card.heightMm} mm sheet.` : 'Check the range.';
+      pitchInfo.textContent = n ? `${n} bands from ${t.pitchFrom} to ${t.pitchTo} LPI on a ${sheetLabel()} sheet.` : 'Check the range: "from" must be below "to".';
     };
-    refreshPitchInfo();
-
-    const pitchTest = card('Pitch test',
-      hint('Each band is a line pattern at a slightly different LPI. Lay the lens on the print, ridges parallel to the lines. The band that looks evenly dark or light across its whole width (no beating stripes) matches your lens. Enter that value as the measured LPI.'),
+    const pitch = card('4 · Pitch test → measured LPI',
+      hint('Print the sheet, lay the lens on it with the ridges parallel to the lines, and look straight down. Most bands show broad stripes; the band that looks evenly toned across its width matches your lens.'),
       row(
         numberField({ label: 'From', unit: 'LPI', value: s().tests.pitchFrom, step: 0.01, onChange: (v) => { set((st) => { st.tests.pitchFrom = v; }); refreshPitchInfo(); } }),
         numberField({ label: 'To', unit: 'LPI', value: s().tests.pitchTo, step: 0.01, onChange: (v) => { set((st) => { st.tests.pitchTo = v; }); refreshPitchInfo(); } }),
@@ -95,44 +77,74 @@ export default {
       ),
       pitchInfo,
       h('div', { class: 'btn-row' },
-        button('Download pitch test PNG', async () => {
+        button('Download pitch test', async () => {
           prog.set(0.3, 'Drawing pitch test…');
           const blob = await makePitchTest(s());
           store.setAssets({ pitchTest: blob });
           prog.done();
           downloadBlob(blob, `pitch-test-${s().printer.ppi}ppi.png`);
-        }, { kind: 'primary' }),
-      ),
+        }, { kind: 'primary' })),
+      numberField({
+        label: 'Measured LPI', unit: 'LPI', value: s().lens.lpiMeasured, step: 0.01, placeholder: 'the matching band',
+        onChange: (v) => set((st) => { st.lens.lpiMeasured = v > 0 ? v : null; }),
+      }),
     );
 
-    const angleTest = card('Viewing-angle & flip tests',
-      hint(`Uses the LPI in use (measured if entered, else nominal) and ${s().plan.frames} frames (Step 2). Each frame is a solid colour with its number. Hold the card at arm's length and tilt it slowly; measure the tilt angle between two appearances of the same colour. That angle is the viewing angle.`),
+    // ---------- 5 · viewing angle ----------
+    const angle = card('5 · Viewing-angle test → measured angle',
+      hint(`${ANGLE_TEST_FRAMES} solid colours numbered 1–${ANGLE_TEST_FRAMES}, interlaced at the LPI in use (measured, once entered). Put the lens on with the ridges vertical and turn the sheet slowly left to right at arm's length. The angle you turn from one appearance of colour 1 to the next is the viewing angle.`),
       h('div', { class: 'btn-row' },
         button('Download viewing-angle test', async () => {
           const blob = await makeAngleTest(s(), (p) => prog.set(p, 'Interlacing angle test…'));
           prog.done();
-          downloadBlob(blob, `angle-test-${s().plan.frames}f.png`);
-        }),
-        button('Download 2-frame flip test (A/B)', async () => {
+          downloadBlob(blob, 'angle-test.png');
+        }, { kind: 'primary' })),
+      numberField({
+        label: 'Measured viewing angle', unit: '°', value: s().lens.angleDeg, step: 0.5, min: 5, max: 80, placeholder: 'e.g. 32',
+        onChange: (v) => set((st) => { st.lens.angleDeg = v > 0 ? v : null; }),
+      }),
+    );
+
+    // ---------- 6 · flip ----------
+    const flip = card('6 · Final check (optional)',
+      hint('A two-frame A/B flip printed with your measured values. A clean switch between A and B, with no stripes, confirms the calibration before you spend photo paper on a card.'),
+      h('div', { class: 'btn-row' },
+        button('Download A/B flip test', async () => {
           const blob = await makeFlipTest(s(), (p) => prog.set(p, 'Interlacing flip test…'));
           prog.done();
           downloadBlob(blob, 'flip-test-AB.png');
-        }),
-      ),
-      hint('Tip: test sheets are for calibration only, so print them on plain paper first to save photo paper.'),
+        })),
     );
 
-    const measured = card('Measured values',
-      row(
-        numberField({ label: 'Measured LPI', unit: 'LPI', value: s().lens.lpiMeasured, step: 0.01, placeholder: 'from pitch test', onChange: (v) => { set((st) => { st.lens.lpiMeasured = v > 0 ? v : null; }); refreshSummary(); } }),
-        numberField({ label: 'Viewing angle', unit: '°', value: s().lens.angleDeg, step: 0.5, min: 5, max: 80, placeholder: 'from angle test', onChange: (v) => set((st) => { st.lens.angleDeg = v > 0 ? v : null; }) }),
-      ),
-      hint('Leave blank until you have printed the tests; nominal values are used meanwhile.'),
-    );
+    // ---------- summary ----------
+    const summary = h('div', { class: 'stats' });
+    const summaryWarn = h('div', { style: { marginTop: '12px' } });
+    const refreshSummary = () => {
+      const st = s();
+      const lpi = lpiInUse(st.lens);
+      const p = pitchPx(st.printer.ppi, lpi);
+      summary.replaceChildren(
+        stat('LPI in use', `${fmt.n(lpi, 2)}${st.lens.lpiMeasured ? ' (measured)' : ' (nominal)'}`),
+        stat('Pixels per lens', fmt.n(p, 3)),
+        stat('Max frames', Math.max(2, Math.floor(p))),
+        stat('Viewing angle', st.lens.angleDeg ? `${st.lens.angleDeg}°` : 'not measured'),
+        stat('Paper', st.media.name || `${st.media.widthMm} × ${st.media.heightMm} mm`),
+        stat('Test sheet', sheetLabel()),
+      );
+      const ws = [];
+      if (!st.lens.lpiMeasured) ws.push({ level: 'info', text: 'Pitch not measured yet: nominal LPI is used until you enter the measured value (step 4).' });
+      if (!st.lens.angleDeg) ws.push({ level: 'info', text: 'Viewing angle not measured yet: 32° is assumed (step 5).' });
+      if (st.printer.ppi > 720) ws.push({ level: 'info', text: `${st.printer.ppi} ppi is experimental; compare against a print at your printer's native resolution.` });
+      const area = printableMm(st.media);
+      if (st.lens.sheetWidthMm > 0 && st.lens.sheetHeightMm > 0 && !((st.lens.sheetWidthMm <= area.w && st.lens.sheetHeightMm <= area.h) || (st.lens.sheetWidthMm <= area.h && st.lens.sheetHeightMm <= area.w))) {
+        ws.push({ level: 'warn', text: 'The lens sheet is larger than the printable area of the paper; test sheets are cropped to the paper.' });
+      }
+      summaryWarn.replaceChildren(warnings(ws) || h('p', { class: 'ok-note' }, 'Calibrated. Export the profile to reuse it.'));
+      refreshPitchInfo();
+    };
 
-    const io = card('Import / export',
-      hint('Save your calibration once and reuse it for every card with this lens.'),
-      h('div', { class: 'btn-row' },
+    const io = card('Calibration summary', summary, summaryWarn,
+      h('div', { class: 'btn-row', style: { marginTop: '12px' } },
         button('Export lens-profile.json', () => downloadJson(SLICES.lens(s()), 'lens-profile.json')),
         button('Import lens profile…', async () => {
           const [f] = await pickFiles({ accept: '.json,application/json' });
@@ -140,42 +152,18 @@ export default {
           store.replaceState(applySlice(s(), await readJsonFile(f)));
           toast('Lens profile imported.');
           rerender();
-        }, { kind: 'ghost' }),
-      ),
+        }, { kind: 'ghost' })),
+      hint('The profile holds printer resolution, paper, lens and measured values. Card design lives in Step 2.'),
     );
 
     root.append(
-      h('div', { class: 'cols' },
-        card('Lens',
-          row(
-            numberField({ label: 'Nominal LPI', unit: 'LPI', value: s().lens.lpiNominal, step: 0.1, min: 10, onChange: (v) => v > 0 && set((st) => { st.lens.lpiNominal = v; }) }),
-          ),
-          effect, orientSel,
-          row(
-            numberField({ label: 'Lens sheet width', unit: 'mm', value: s().lens.sheetWidthMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetWidthMm = v; }) }),
-            numberField({ label: 'Lens sheet height', unit: 'mm', value: s().lens.sheetHeightMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetHeightMm = v; }) }),
-          ),
-        ),
-        card('Printer & card',
-          row(
-            selectField({
-              label: 'Printer resolution', value: s().printer.ppi,
-              options: [[720, '720 ppi'], [600, '600 ppi'], [1440, '1440 ppi (experimental)'], [1200, '1200 ppi (experimental)'], [300, '300 ppi']],
-              onChange: (v) => set((st) => { st.printer.ppi = Number(v); }),
-              hint: "Use your printer's native input resolution (typically 720 ppi for Epson inkjets, 600 ppi for Canon and HP).",
-            }),
-          ),
-          preset, cardFields,
-        ),
-      ),
-      card('Summary', summary, sizeWarn),
+      h('div', { class: 'cols' }, printer, paper, lens),
       prog,
-      h('div', { class: 'cols' }, pitchTest, angleTest),
-      measured,
+      h('div', { class: 'cols' }, pitch, angle),
+      flip,
       io,
     );
     refreshSummary();
-    const off = store.on('change', refreshSummary);
-    return off;
+    return store.on('change', refreshSummary);
   },
 };

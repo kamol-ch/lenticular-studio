@@ -3,6 +3,12 @@
 export const MM_PER_INCH = 25.4;
 export const A4_MM = { w: 210, h: 297 };
 
+/** Paper presets (mm, portrait). */
+export const MEDIA_PRESETS = [
+  ['A4', 210, 297], ['Letter', 215.9, 279.4], ['A5', 148, 210], ['A6', 105, 148],
+  ['4 × 6 in', 101.6, 152.4], ['5 × 7 in', 127, 177.8], ['13 × 18 cm', 130, 180],
+];
+
 export const mmToPx = (mm, ppi) => (mm / MM_PER_INCH) * ppi;
 export const pxToMm = (px, ppi) => (px / ppi) * MM_PER_INCH;
 
@@ -64,10 +70,10 @@ export function frameGeometry(state) {
   const ppi = state.printer.ppi;
   const g = workingFrameSize({
     card: state.card, ppi, lpi,
-    orientation: state.lens.orientation,
+    orientation: state.orientation,
     samplesPerLens: state.plan.samplesPerLens,
   });
-  return { ...g, ppi, lpi, pitch: pitchPx(ppi, lpi), axis: axisOf(state.lens.orientation), n: state.plan.frames };
+  return { ...g, ppi, lpi, pitch: pitchPx(ppi, lpi), axis: axisOf(state.orientation), n: state.plan.frames };
 }
 
 /** A string that changes whenever stored frames would need rebuilding. */
@@ -76,11 +82,38 @@ export function framesSignature(state) {
   return JSON.stringify([g.fw, g.fh, g.outW, g.outH, g.axis, g.n]);
 }
 
-/** Pick portrait or landscape A4, whichever fits more cells. */
-export function tileLayout(cellW, cellH, ppi) {
-  const pw = Math.round(mmToPx(A4_MM.w, ppi));
-  const ph = Math.round(mmToPx(A4_MM.h, ppi));
-  const fit = (W, H) => ({ W, H, cols: Math.floor(W / cellW), rows: Math.floor(H / cellH) });
+/** Printable area of the paper (inside the printer's unprintable margin). */
+export function printableMm(media) {
+  const m = media.marginMm ?? 3;
+  return { w: media.widthMm - 2 * m, h: media.heightMm - 2 * m };
+}
+
+/** Does a w×h mm item fit on the paper, either way round? */
+export function fitsOn(wMm, hMm, areaW, areaH) {
+  return (wMm <= areaW && hMm <= areaH) || (wMm <= areaH && hMm <= areaW);
+}
+
+/**
+ * Size of the calibration sheets: the lens sheet if known (else 100 × 150 mm),
+ * turned to match the paper and clamped to its printable area.
+ */
+export function testSheetMm(lens, media) {
+  const area = printableMm(media);
+  let w = lens.sheetWidthMm > 0 ? lens.sheetWidthMm : 100;
+  let h = lens.sheetHeightMm > 0 ? lens.sheetHeightMm : 150;
+  if ((w > h) !== (area.w > area.h)) [w, h] = [h, w];
+  return { w: Math.min(w, area.w), h: Math.min(h, area.h) };
+}
+
+/**
+ * Pick portrait or landscape paper, whichever fits more cells inside the
+ * printable area. The page itself is the full paper size.
+ */
+export function tileLayout(cellW, cellH, ppi, media = { widthMm: A4_MM.w, heightMm: A4_MM.h, marginMm: 0 }) {
+  const pw = Math.round(mmToPx(media.widthMm, ppi));
+  const ph = Math.round(mmToPx(media.heightMm, ppi));
+  const mp = 2 * Math.round(mmToPx(media.marginMm ?? 0, ppi));
+  const fit = (W, H) => ({ W, H, cols: Math.floor((W - mp) / cellW), rows: Math.floor((H - mp) / cellH) });
   const a = fit(pw, ph);
   const b = fit(ph, pw);
   const best = b.cols * b.rows > a.cols * a.rows ? b : a;

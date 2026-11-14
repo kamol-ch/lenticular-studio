@@ -114,8 +114,8 @@ document.getElementById('btn-new').append(button('New', () => {
   if (store.dirty && !confirm('Start a new project? Unsaved images and frames will be lost.')) return;
   const keep = store.state;
   const fresh = defaultState();
-  // Keep calibration: lens, printer and card usually stay the same between cards.
-  fresh.lens = keep.lens; fresh.printer = keep.printer; fresh.card = keep.card; fresh.tests = keep.tests; fresh.effect = keep.effect;
+  // Keep the Step 1 calibration (and the last card size, which is often reused).
+  fresh.printer = keep.printer; fresh.media = keep.media; fresh.lens = keep.lens; fresh.tests = keep.tests; fresh.card = keep.card;
   store.replaceAll(fresh, {});
   go(1);
   route();

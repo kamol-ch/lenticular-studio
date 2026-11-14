@@ -8,12 +8,16 @@ export function defaultState() {
   return {
     version: PROJECT_VERSION,
     name: 'Untitled card',
+    // Card design (Step 2)
     effect: '3d', // '3d' | 'animation' | '3d-motion'
+    orientation: 'vertical', // ridge direction: 'vertical' | 'horizontal'
+    // Calibration (Step 1)
+    printer: { ppi: 720 },
+    media: { name: 'A4', widthMm: 210, heightMm: 297, marginMm: 3 },
     lens: {
-      lpiNominal: 75, lpiMeasured: null, angleDeg: null, orientation: 'vertical',
+      lpiNominal: 75, lpiMeasured: null, angleDeg: null,
       sheetWidthMm: null, sheetHeightMm: null,
     },
-    printer: { ppi: 720 },
     card: { widthMm: 100, heightMm: 150, bleedMm: 3 },
     tests: { pitchFrom: 74.6, pitchTo: 75.4, pitchStep: 0.05 },
     plan: { frames: 8, samplesPerLens: 3, budgetLensPerFrame: 1, viewDistMm: 400, ipdMm: 63 },
@@ -25,7 +29,7 @@ export function defaultState() {
       previewFps: 8,
     },
     depth: { mode: 'none', keyPlane: 0, strength: 0.6 }, // mode: 'none' | 'layers' | 'ai'
-    interlace: { reverse: true, marks: true, tileOnA4: false, phaseOffset: 0, marginMm: 8 },
+    interlace: { reverse: true, marks: true, tileOnMedia: false, phaseOffset: 0, marginMm: 8 },
     print: { checklist: {} },
     steps: { 1: 'todo', 2: 'todo', 3: 'todo', 4: 'todo', 5: 'todo', 6: 'todo', 7: 'todo' },
   };
@@ -48,7 +52,7 @@ export function normalizeState(json) {
   if (parsed.version && parsed.version > PROJECT_VERSION) {
     throw new Error(`Project version ${parsed.version} is newer than this app (${PROJECT_VERSION}).`);
   }
-  const s = deepMerge(defaultState(), parsed);
+  const s = deepMerge(defaultState(), migrate(parsed));
   s.version = PROJECT_VERSION;
   s.layers = (s.layers || []).map((l, i) => ({
     id: l.id || `layer${i + 1}`, name: l.name || `Layer ${i + 1}`, file: l.file || null,
@@ -56,6 +60,21 @@ export function normalizeState(json) {
     visible: l.visible !== false, depth: num(l.depth, 0),
   }));
   return s;
+}
+
+/** Older projects kept ridge orientation on the lens and tiled only on A4. */
+function migrate(raw) {
+  const p = JSON.parse(JSON.stringify(raw || {}));
+  if (p.lens && 'orientation' in p.lens) {
+    if (p.orientation === undefined) p.orientation = p.lens.orientation;
+    delete p.lens.orientation;
+  }
+  if (p.interlace && 'tileOnA4' in p.interlace) {
+    if (p.interlace.tileOnMedia === undefined) p.interlace.tileOnMedia = p.interlace.tileOnA4;
+    delete p.interlace.tileOnA4;
+  }
+  if (p.printer) delete p.printer.model;
+  return p;
 }
 
 function num(v, d) { return typeof v === 'number' && Number.isFinite(v) ? v : d; }
@@ -66,21 +85,24 @@ export function serializeState(state) {
 
 /** Slices exported/imported by individual steps (plan §4). */
 export const SLICES = {
-  lens: (s) => ({ kind: 'lens-profile', version: PROJECT_VERSION, effect: s.effect, lens: s.lens, printer: s.printer, card: s.card, tests: s.tests }),
-  plan: (s, derived) => ({ kind: 'plan', version: PROJECT_VERSION, plan: s.plan, derived }),
+  lens: (s) => ({ kind: 'lens-profile', version: PROJECT_VERSION, printer: s.printer, media: s.media, lens: s.lens, tests: s.tests }),
+  plan: (s, derived) => ({ kind: 'plan', version: PROJECT_VERSION, effect: s.effect, orientation: s.orientation, card: s.card, plan: s.plan, derived }),
 };
 
 export function applySlice(state, slice) {
   if (!slice || !slice.kind) throw new Error('Not a Lenticular Studio file.');
   const pick = {
-    'lens-profile': ['effect', 'lens', 'printer', 'card', 'tests'],
-    plan: ['plan'],
+    // Calibration only: an old profile's card / effect / orientation are ignored.
+    'lens-profile': ['printer', 'media', 'lens', 'tests'],
+    plan: ['effect', 'orientation', 'card', 'plan'],
     layers: ['layers'],
     animation: ['animation'],
     depth: ['depth'],
   }[slice.kind];
   if (!pick) throw new Error(`Unknown file kind "${slice.kind}".`);
   const partial = {};
-  for (const k of pick) if (k in slice) partial[k] = slice[k];
+  for (const k of pick) if (k in slice) partial[k] = JSON.parse(JSON.stringify(slice[k]));
+  if (partial.lens) delete partial.lens.orientation;
+  if (partial.printer) delete partial.printer.model;
   return normalizeState(deepMerge(state, partial));
 }

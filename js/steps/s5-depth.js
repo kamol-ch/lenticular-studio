@@ -92,7 +92,7 @@ export default {
       if (s().depth.mode !== 'none') {
         ws.push({ level: 'info', text: `Largest shift per frame: ${(p.depth?.pxPerFrame || 0).toFixed(1)} px of a ${p.maxShiftPxPerFrame.toFixed(1)} px budget · ${p.framesBetweenEyes.toFixed(2)} frames between the eyes.` });
         ws.push(...p.warnings.filter((w) => w.code === 'blur-risk' || w.code === 'weak-3d'));
-        if (s().lens.orientation === 'horizontal') ws.push({ level: 'warn', text: '3D needs vertical ridges (each eye sees a different strip). Change orientation in Step 1.' });
+        if (s().orientation === 'horizontal') ws.push({ level: 'warn', text: '3D needs vertical ridges (each eye sees a different strip). Change the ridge direction in Step 2.' });
         if (s().depth.mode === 'layers' && frameSource(s(), store.assets) === 'clip') ws.push({ level: 'error', text: 'Layer depth cannot be used with a video clip. Use AI depth.' });
       }
       usage.replaceChildren(warnings(ws) || '');

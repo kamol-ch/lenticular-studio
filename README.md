@@ -22,15 +22,15 @@ Use a current Chrome, Edge, Firefox or Safari (16.4 or later).
 
 | Step | What it does | Import / export |
 |---|---|---|
-| 1. Lens & printer | Nominal LPI, ppi, card size + bleed, effect type → ridge orientation. Makes the pitch-test, viewing-angle and 2-frame flip sheets. You enter the measured LPI and angle. | `lens-profile.json`, test PNGs |
-| 2. Frame planner | Pixels per lens, max frames, frames between the eyes, depth budget, working frame size and memory. Warns about weak 3D, too many frames, and blur or ghosting risk. | `plan.json` |
+| 1. Printer & lens | Calibration, once per lens: printer resolution → paper size → nominal LPI (+ lens sheet size) → pitch test → measured LPI → viewing-angle test → measured angle → optional A/B flip check. Test sheets match the lens sheet (100 × 150 mm if unknown), clamped to the paper. | `lens-profile.json`, test PNGs |
+| 2. Card & frame plan | Effect (3D / animation / both) → ridge direction, card size + bleed, frames. Shows pixels per lens, frames between the eyes, depth budget, working frame size and memory. Warns about weak 3D, too many frames, blur or ghosting risk, and cards that don't fit the lens sheet or paper. | `plan.json` |
 | 3. Images | Upload a scan or PNG layers. Drag to move, scroll to resize, reorder, set opacity and per-layer depth. | `source.zip` |
 | 4. Animation *(optional)* | **Simple motion** on a layer or a painted mask (drift, bob, sway, scale, fade in/out, flicker, with easing). **Video clip**: pick start/end, extract N frames, optional ping-pong and drift alignment. Looping preview. | `animation.zip` |
 | 5. Depth & 3D *(optional)* | **Layer mode**: shift = (depth − key plane) × strength × budget × (frame − centre). **Depth-map mode**: AI estimate, from layers, or flat. Brush near/far/smooth, plus edge cleanup. Forward warp with z-ordering and background-stretch gap fill. Wiggle and red/cyan anaglyph previews. | `depth.png`, `frames.zip` |
-| 6. Slice & interlace | Fractional-pitch interlacing, reverse order, crop marks and registration strips, A4 tiling on one continuous lens grid, phase offset. 1:1 zoom preview and tilt simulator. | `interlaced.png` (with pHYs ppi) |
+| 6. Slice & interlace | Fractional-pitch interlacing, reverse order, crop marks and registration strips, tiling on the Step 1 paper with one continuous lens grid, phase offset. 1:1 zoom preview and tilt simulator. | `interlaced.png` (with pHYs ppi) |
 | 7. Print & mount | Printer checklist (bidirectional OFF), mounting steps, troubleshooting. | |
 
-**Save project** writes everything to one `project.zip` (see plan §4). **Open…** restores it. **New** keeps your lens calibration.
+**Save project** writes everything to one `project.zip` (see plan §4). **Open…** restores it. **New** keeps your Step 1 calibration.
 
 ## How the output stays accurate
 
@@ -45,7 +45,7 @@ index.html, css/app.css
 js/main.js             wizard shell, sidebar, project open/save
 js/store.js            state (JSON, saved to localStorage) + in-memory assets
 js/core/               pure, DOM-free logic (unit-tested in Node)
-  geometry.js          mm/px, pitch, bleed box, working frame size, A4 tiling
+  geometry.js          mm/px, pitch, bleed box, working frame size, paper tiling, test-sheet size
   planner.js           Step 2 maths and warnings
   interlace.js         index maps, page layout, marks, row renderer, tilt mapping
   png.js               streaming PNG encoder, pHYs, chunk reader
@@ -68,7 +68,7 @@ js/steps/s1…s7         step UIs
 npm test
 ```
 
-There are 23 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search and state round-trips.
+There are 25 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
 
 Print tests with the real lens, in order: pitch test → viewing-angle test → 2-frame flip → 3D.
 

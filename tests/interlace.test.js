@@ -101,11 +101,13 @@ test('marks add a margin; registration strip uses frame-0 slots', () => {
   }
 });
 
+const A4 = { widthMm: 210, heightMm: 297, marginMm: 3 };
+
 test('A4 tiling fits multiple small cards and keeps one lens grid', () => {
   const out = bleedBoxPx({ widthMm: 54, heightMm: 85.6, bleedMm: 2 }, 720);
-  const page = planPage({ outW: out.w, outH: out.h, marginPx: 100, tileA4: true, ppi: 720 });
+  const page = planPage({ outW: out.w, outH: out.h, marginPx: 100, tile: true, media: A4, ppi: 720 });
   assert.ok(page.placements.length >= 6, `got ${page.placements.length}`);
-  const t = tileLayout(out.w + 200, out.h + 200, 720);
+  const t = tileLayout(out.w + 200, out.h + 200, 720, A4);
   assert.equal(page.placements.length, t.cols * t.rows);
 });
 

@@ -55,8 +55,8 @@ export default {
       const ppi = st.printer.ppi;
       const m = st.interlace.marks ? Math.round(mmToPx(st.interlace.marginMm, ppi)) : 0;
       let page = { w: b.w + 2 * m, h: b.h + 2 * m }, cards = 1;
-      if (st.interlace.tileOnA4) {
-        const t = tileLayout(b.w + 2 * m, b.h + 2 * m, ppi);
+      if (st.interlace.tileOnMedia) {
+        const t = tileLayout(b.w + 2 * m, b.h + 2 * m, ppi, st.media);
         page = { w: t.pageW, h: t.pageH }; cards = t.cols * t.rows;
       }
       stats.replaceChildren(
@@ -65,11 +65,11 @@ export default {
         stat('Resolution', `${ppi} ppi`),
         stat('Pitch', `${fmt.n(ppi / lpiInUse(st.lens), 4)} px @ ${fmt.n(lpiInUse(st.lens), 2)} LPI`),
         stat('Frames', st.plan.frames),
-        stat('Ridges', st.lens.orientation),
-        ...(st.interlace.tileOnA4 ? [stat('Cards on A4', cards)] : []),
+        stat('Ridges', st.orientation),
+        ...(st.interlace.tileOnMedia ? [stat(`Cards per ${st.media.name || 'sheet'}`, cards)] : []),
       );
       const ws = [];
-      if (st.interlace.tileOnA4 && cards < 1) ws.push({ level: 'error', text: 'The card does not fit on A4.' });
+      if (st.interlace.tileOnMedia && cards < 1) ws.push({ level: 'error', text: `The card (with marks) does not fit on ${st.media.name || 'the paper'}. Choose larger paper in Step 1 or turn off tiling.` });
       if (!st.lens.lpiMeasured) ws.push({ level: 'info', text: 'Using nominal LPI. Run the pitch test (Step 1) for a sharper result.' });
       statsWarn.replaceChildren(warnings(ws) || '');
     };
@@ -109,7 +109,7 @@ export default {
       if (fr[k]) x.drawImage(fr[k], 0, 0, tiltCanvas.width, tiltCanvas.height);
       else { x.fillStyle = '#ddd'; x.fillRect(0, 0, tiltCanvas.width, tiltCanvas.height); }
       diagram.replaceChildren(lensDiagram(n, k, s().interlace.reverse, tilt, viewDeg()));
-      tiltLabel.textContent = `Frame ${k + 1} of ${n} visible. ${s().lens.orientation === 'vertical' ? 'Turn the card left/right.' : 'Tilt the card toward / away from you.'}`;
+      tiltLabel.textContent = `Frame ${k + 1} of ${n} visible. ${s().orientation === 'vertical' ? 'Turn the card left/right.' : 'Tilt the card toward / away from you.'}`;
     };
     const tiltSlider = slider({
       label: 'Tilt', value: 0, min: -30, max: 30, step: 0.25, format: (v) => `${v.toFixed(1)}°`,
@@ -147,7 +147,7 @@ export default {
       checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'A lens flips the image under it. Toggle if 3D looks inside-out or animation runs backwards.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); drawTilt(); } }),
       checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks at the trim plus registration strips outside the bleed (frame-1 slot of every lens is black).', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
       numberField({ label: 'Marks margin', unit: 'mm', value: s().interlace.marginMm, step: 1, min: 4, max: 20, onChange: (v) => { if (v >= 4) { store.update((st) => { st.interlace.marginMm = v; }); invalidate(); } } }),
-      checkbox({ label: 'Tile cards on A4', checked: s().interlace.tileOnA4, hint: 'Fills an A4 page with copies sharing one continuous lens grid.', onChange: (v) => { store.update((st) => { st.interlace.tileOnA4 = v; }); invalidate(); } }),
+      checkbox({ label: `Tile cards on the paper (${s().media.name || `${s().media.widthMm} × ${s().media.heightMm} mm`})`, checked: s().interlace.tileOnMedia, hint: 'Fills the sheet set in Step 1 with copies sharing one continuous lens grid.', onChange: (v) => { store.update((st) => { st.interlace.tileOnMedia = v; }); invalidate(); } }),
       slider({ label: 'Phase offset', value: s().interlace.phaseOffset, min: 0, max: 1, step: 0.05, format: (v) => `${v.toFixed(2)} lens`, onChange: (v) => { store.update((st) => { st.interlace.phaseOffset = v; }); invalidate(); } }),
     );
 

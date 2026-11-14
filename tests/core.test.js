@@ -6,6 +6,7 @@ import { forwardWarp, layerShiftPx, viewGain } from '../js/core/warp.js';
 import { applyBrush, boxBlur, createDepthMap, dilate, resampleToSigned } from '../js/core/depthmap.js';
 import { estimateShift, frameOrder, evenlySpacedTimes, resampleIndex } from '../js/core/sequence.js';
 import { defaultState, normalizeState, serializeState, applySlice, SLICES } from '../js/core/schema.js';
+import { testSheetMm } from '../js/core/geometry.js';
 
 const card = { widthMm: 100, heightMm: 150, bleedMm: 3 };
 
@@ -113,4 +114,32 @@ test('schema: round-trip and slices', () => {
   assert.equal(applied.lens.lpiMeasured, 75.08);
   assert.equal(applied.plan.frames, 6);
   assert.throws(() => normalizeState({ version: 99 }));
+});
+
+test('schema: migrates projects that kept orientation on the lens and tiled on A4', () => {
+  const old = { version: 1, effect: 'animation', lens: { lpiNominal: 75, orientation: 'horizontal' }, printer: { ppi: 720, model: 'X' }, interlace: { tileOnA4: true } };
+  const s = normalizeState(old);
+  assert.equal(s.orientation, 'horizontal');
+  assert.equal('orientation' in s.lens, false);
+  assert.equal(s.interlace.tileOnMedia, true);
+  assert.equal('tileOnA4' in s.interlace, false);
+  assert.equal('model' in s.printer, false);
+  assert.equal(s.media.name, 'A4');
+  // An old lens profile must not overwrite the card design.
+  const target = defaultState();
+  target.orientation = 'vertical';
+  target.card.widthMm = 54;
+  const applied = applySlice(target, { kind: 'lens-profile', lens: { lpiNominal: 75, lpiMeasured: 75.1, orientation: 'horizontal' }, card: { widthMm: 999 }, effect: 'animation' });
+  assert.equal(applied.lens.lpiMeasured, 75.1);
+  assert.equal(applied.orientation, 'vertical');
+  assert.equal(applied.card.widthMm, 54);
+  assert.equal(applied.effect, '3d');
+});
+
+test('geometry: test sheet follows the lens sheet, turned and clamped to the paper', () => {
+  const a4 = { widthMm: 210, heightMm: 297, marginMm: 3 };
+  assert.deepEqual(testSheetMm({}, a4), { w: 100, h: 150 });
+  assert.deepEqual(testSheetMm({ sheetWidthMm: 300, sheetHeightMm: 200 }, a4), { w: 200, h: 291 });
+  const land = { widthMm: 152.4, heightMm: 101.6, marginMm: 3 };
+  assert.deepEqual(testSheetMm({}, land), { w: 146.4, h: 95.6 });
 });

@@ -1,5 +1,5 @@
-import { h, card, row, hint, numberField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
-import { lpiInUse, frameGeometry } from '../core/geometry.js';
+import { h, card, row, hint, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
+import { lpiInUse, frameGeometry, orientationForEffect, printableMm, fitsOn } from '../core/geometry.js';
 import { computePlan } from '../core/planner.js';
 import { maxMotionMmPerFrame } from '../core/motion.js';
 import { mmToPx } from '../core/geometry.js';
@@ -22,15 +22,82 @@ export function planFor(state) {
   });
 }
 
+const CARD_PRESETS = [
+  ['', 'Custom…'],
+  ['54x85.6', 'Credit card 54 × 85.6 mm'],
+  ['63x88', 'Trading card 63 × 88 mm'],
+  ['100x150', '10 × 15 cm (4 × 6 in)'],
+  ['105x148', 'A6 105 × 148 mm'],
+  ['127x178', '5 × 7 in'],
+];
+
+const EFFECTS = [['3d', '3D depth'], ['animation', 'Animation (flip / motion)'], ['3d-motion', '3D + subtle motion']];
+const RIDGES = [['vertical', 'Vertical ridges: turn left/right'], ['horizontal', 'Horizontal ridges: tilt toward/away']];
+
+/** Card-level checks against the calibrated lens sheet and paper. */
+function cardWarnings(st) {
+  const ws = [];
+  const { widthMm: w, heightMm: hh, bleedMm: b } = st.card;
+  const sw = st.lens.sheetWidthMm, sh = st.lens.sheetHeightMm;
+  if (sw > 0 && sh > 0 && !fitsOn(w, hh, sw, sh)) ws.push({ level: 'warn', text: `The card (${w} × ${hh} mm) is larger than the lens sheet (${sw} × ${sh} mm).` });
+  const m = st.interlace.marks ? st.interlace.marginMm : 0;
+  const area = printableMm(st.media);
+  if (!fitsOn(w + 2 * b + 2 * m, hh + 2 * b + 2 * m, area.w, area.h)) {
+    ws.push({ level: 'error', text: `With bleed and marks the print is ${fmt.n(w + 2 * b + 2 * m, 1)} × ${fmt.n(hh + 2 * b + 2 * m, 1)} mm, which does not fit the printable area of ${st.media.name || 'the paper'} (${fmt.n(area.w, 1)} × ${fmt.n(area.h, 1)} mm).` });
+  }
+  const expected = orientationForEffect(st.effect);
+  if (st.orientation !== expected) {
+    ws.push({ level: 'warn', text: st.effect === 'animation'
+      ? 'Animation with vertical ridges: each eye may see a different frame, which reads as ghosting. Horizontal ridges are usual.'
+      : '3D needs vertical ridges so each eye sees a different view; with horizontal ridges there is no depth.' });
+  }
+  return ws;
+}
+
 export default {
   id: 2,
-  title: 'Frame planner',
-  subtitle: 'Frames & depth budget',
-  intro: 'How many frames to use and how much depth or motion the lens can show before it blurs.',
-  render(root, { store }) {
+  title: 'Card & frame plan',
+  subtitle: 'Effect, size, frames',
+  intro: 'Design this card: choose the effect and size, then see how many frames and how much depth or motion the lens can show before it blurs.',
+  render(root, { store, rerender }) {
     const s = () => store.state;
+    const set = (fn) => store.update(fn);
     const stats = h('div', { class: 'stats' });
     const warn = h('div');
+    const cardWarn = h('div');
+
+    // ---------- effect & ridges ----------
+    const ridgeSel = selectField({
+      label: 'Ridge direction', value: s().orientation, options: RIDGES,
+      onChange: (v) => set((st) => { st.orientation = v; }),
+      hint: 'Set automatically from the effect. Lay the lens this way on the print.',
+    });
+    const effectSel = selectField({
+      label: 'Effect', value: s().effect, options: EFFECTS,
+      onChange: (v) => {
+        set((st) => { st.effect = v; st.orientation = orientationForEffect(v); });
+        ridgeSel.querySelector('select').value = s().orientation;
+      },
+      hint: '3D shows depth because each eye sees a different frame. Animation changes as you tilt the card.',
+    });
+
+    // ---------- card size ----------
+    const sizeFields = h('div');
+    const renderSize = () => sizeFields.replaceChildren(row(
+      numberField({ label: 'Width', unit: 'mm', value: s().card.widthMm, min: 10, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.card.widthMm = v; }) }),
+      numberField({ label: 'Height', unit: 'mm', value: s().card.heightMm, min: 10, step: 0.1, onChange: (v) => v > 0 && set((st) => { st.card.heightMm = v; }) }),
+      numberField({ label: 'Bleed', unit: 'mm', value: s().card.bleedMm, min: 0, step: 0.5, onChange: (v) => v >= 0 && set((st) => { st.card.bleedMm = v; }) }),
+    ));
+    renderSize();
+    const preset = selectField({
+      label: 'Card size', value: `${s().card.widthMm}x${s().card.heightMm}`, options: CARD_PRESETS,
+      onChange: (v) => {
+        if (!v) return;
+        const [w, hh] = v.split('x').map(Number);
+        set((st) => { st.card.widthMm = w; st.card.heightMm = hh; });
+        renderSize();
+      },
+    });
 
     const refresh = () => {
       const p = planFor(s());
@@ -51,6 +118,7 @@ export default {
         ...(p.depth ? [stat('Depth in use / frame', `${fmt.n(p.depth.pxPerFrame, 1)} px`)] : []),
       );
       warn.replaceChildren(warnings(p.warnings) || h('p', { class: 'ok-note' }, 'Plan looks good.'));
+      cardWarn.replaceChildren(warnings(cardWarnings(s())) || '');
     };
 
     const framesField = numberField({
@@ -63,6 +131,11 @@ export default {
     });
 
     root.append(
+      h('div', { class: 'cols' },
+        card('Effect', effectSel, ridgeSel),
+        card('Card', preset, sizeFields, hint('Bleed is extra image beyond the trim line, so small cutting errors never show white.')),
+      ),
+      cardWarn,
       h('div', { class: 'cols-wide' },
         card('Plan', stats, h('div', { style: { marginTop: '14px' } }, warn)),
         card('Settings',
@@ -93,8 +166,8 @@ export default {
             const [f] = await pickFiles({ accept: '.json,application/json' });
             if (!f) return;
             store.replaceState(applySlice(s(), await readJsonFile(f)));
-            framesField.querySelector('input').value = s().plan.frames;
             toast('Plan imported.');
+            rerender();
           }, { kind: 'ghost' }),
         ),
         hint('Changing frames, card size or lens settings makes existing frames out of date; rebuild them in Step 5 or 6.'),

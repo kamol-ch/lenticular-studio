@@ -1,6 +1,6 @@
 // Calibration sheets (plan §5 Step 1): pitch test, viewing-angle test, 2-frame flip.
 
-import { mmToPx, frameGeometry, bleedBoxPx } from './core/geometry.js';
+import { mmToPx, frameGeometry, bleedBoxPx, testSheetMm } from './core/geometry.js';
 import { frameIndexAt } from './core/interlace.js';
 import { makeCanvas, ctx2d, canvasToPngWithDpi } from './canvas.js';
 import { interlaceCanvases, interlaceParams } from './pipeline.js';
@@ -23,12 +23,11 @@ export async function makePitchTest(state) {
   const { from, to, step } = { from: state.tests.pitchFrom, to: state.tests.pitchTo, step: state.tests.pitchStep };
   const lpis = pitchCandidates(from, to, step);
   if (!lpis.length) throw new Error('Check the pitch range: "from" must be below "to" and step > 0.');
-  const vertical = state.lens.orientation !== 'horizontal';
-  // Work in a "vertical ridges" frame of reference: W across ridges, H along.
-  const cw = Math.round(mmToPx(state.card.widthMm, ppi));
-  const ch = Math.round(mmToPx(state.card.heightMm, ppi));
-  const W = vertical ? cw : ch;
-  const H = vertical ? ch : cw;
+  // Calibration is independent of the card design: lines always run along the
+  // sheet's long side; lay the lens with its ridges parallel to them.
+  const sheet = testSheetMm(state.lens, state.media);
+  const W = Math.round(mmToPx(sheet.w, ppi));
+  const H = Math.round(mmToPx(sheet.h, ppi));
   const c = makeCanvas(W, H);
   const x = ctx2d(c);
   x.fillStyle = '#fff';
@@ -44,7 +43,7 @@ export async function makePitchTest(state) {
   x.fillStyle = '#000';
   x.font = `600 ${Math.round(mmToPx(3, ppi))}px system-ui, sans-serif`;
   x.textBaseline = 'middle';
-  x.fillText(`Pitch test · ${ppi} ppi · print at 100% · lines ${vertical ? 'vertical' : 'horizontal'}`, mmToPx(2, ppi), header / 2);
+  x.fillText(`Pitch test · ${ppi} ppi · print at 100% · ridges parallel to the lines`, mmToPx(2, ppi), header / 2);
 
   const img = x.getImageData(labelW, header, W - labelW, bandH * lpis.length);
   const d = img.data;
@@ -70,18 +69,25 @@ export async function makePitchTest(state) {
     x.fillText(lpi.toFixed(2), mmToPx(1.5, ppi), y);
   });
 
-  let out = c;
-  if (!vertical) {
-    out = makeCanvas(H, W);
-    const o = ctx2d(out);
-    o.translate(H, 0);
-    o.rotate(Math.PI / 2);
-    o.drawImage(c, 0, 0);
-  }
+  const out = c;
   return canvasToPngWithDpi(out, ppi);
 }
 
 const ANGLE_COLORS = ['#d7263d', '#f46036', '#f2c14e', '#2e9e44', '#1b998b', '#2e86de', '#5f4bb6', '#c04abc', '#6d6875', '#222222', '#aaaaaa', '#7a4a2a'];
+
+/**
+ * A throwaway design for calibration prints: the test-sheet size (minus the
+ * marks margin), vertical ridges, and a fixed frame count.
+ */
+export function testState(state, n) {
+  const sheet = testSheetMm(state.lens, state.media);
+  const m = state.interlace.marks ? state.interlace.marginMm : 0;
+  const card = { widthMm: sheet.w - 2 * m, heightMm: sheet.h - 2 * m, bleedMm: 0 };
+  if (card.widthMm < 20 || card.heightMm < 20) throw new Error('The test sheet is too small for the marks margin; enter a larger lens sheet size or reduce the margin.');
+  return { ...state, orientation: 'vertical', card, plan: { ...state.plan, frames: n } };
+}
+
+export const ANGLE_TEST_FRAMES = 8;
 
 function testFrames(state, n, draw) {
   const g = frameGeometry(state);
@@ -96,8 +102,9 @@ function testFrames(state, n, draw) {
 }
 
 /** Each frame a solid colour with its number: tilt to see where the sequence repeats. */
-export async function makeAngleTest(state, onProgress) {
-  const n = state.plan.frames;
+export async function makeAngleTest(state0, onProgress) {
+  const n = ANGLE_TEST_FRAMES;
+  const state = testState(state0, n);
   const frames = testFrames(state, n, (x, i, W, H) => {
     x.fillStyle = ANGLE_COLORS[i % ANGLE_COLORS.length];
     x.fillRect(0, 0, W, H);
@@ -107,12 +114,13 @@ export async function makeAngleTest(state, onProgress) {
     x.textBaseline = 'middle';
     x.fillText(String(i + 1), W / 2, H / 2);
   });
-  const r = await interlaceCanvases(frames, interlaceParams(state, { tileA4: false }), onProgress);
+  const r = await interlaceCanvases(frames, interlaceParams(state, { tile: false }), onProgress);
   return r.blob;
 }
 
 /** Two-frame flip: the simplest print test after pitch is known. */
-export async function makeFlipTest(state, onProgress) {
+export async function makeFlipTest(state0, onProgress) {
+  const state = testState(state0, 2);
   const frames = testFrames(state, 2, (x, i, W, H) => {
     x.fillStyle = i === 0 ? '#fff' : '#111';
     x.fillRect(0, 0, W, H);
@@ -122,6 +130,6 @@ export async function makeFlipTest(state, onProgress) {
     x.textBaseline = 'middle';
     x.fillText(i === 0 ? 'A' : 'B', W / 2, H / 2);
   });
-  const r = await interlaceCanvases(frames, interlaceParams(state, { tileA4: false }), onProgress);
+  const r = await interlaceCanvases(frames, interlaceParams(state, { tile: false }), onProgress);
   return r.blob;
 }

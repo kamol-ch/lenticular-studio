@@ -69,7 +69,7 @@ export function renderComposite(target, { state, assets, frameIndex = null, n = 
   const sx = target.width / outW, sy = target.height / outH;
   const ppi = state.printer.ppi;
   const effects = withMotion && frameIndex != null ? state.animation.effects.filter((e) => e.enabled !== false) : [];
-  const axis = axisOf(state.lens.orientation);
+  const axis = axisOf(state.orientation);
   const budget = withDepth ? depthBudgetPx(state) : 0;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);

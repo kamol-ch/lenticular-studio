@@ -98,12 +98,13 @@ export function interlaceParams(state = store.state, overrides = {}) {
   return {
     outW: b.w, outH: b.h, bleedPx: b.bleedPx,
     pitch: ppi / lpi, ppi,
-    orientation: state.lens.orientation,
+    orientation: state.orientation,
     reverse: state.interlace.reverse,
     phaseOffset: state.interlace.phaseOffset,
     marks: state.interlace.marks,
     marginMm: state.interlace.marginMm,
-    tileA4: state.interlace.tileOnA4,
+    tile: state.interlace.tileOnMedia,
+    media: state.media,
     ...overrides,
   };
 }
