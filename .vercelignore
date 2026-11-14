@@ -1,0 +1,5 @@
+# Dev-only files: not needed on the hosted site
+serve.mjs
+package.json
+tests/
+.gitignore
