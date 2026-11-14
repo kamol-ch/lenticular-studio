@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, pic, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
 import { bleedBoxPx, frameGeometry, lpiInUse, mmToPx, pxToMm, tileLayout } from '../core/geometry.js';
 import { visibleFrameAtAngle } from '../core/interlace.js';
 import { makeCanvas, ctx2d, sizeForDisplay } from '../canvas.js';
@@ -39,11 +39,6 @@ export default {
   title: 'Slice & interlace',
   subtitle: 'Make the print file',
   intro: 'Slice the frames into strips that fit your lens exactly.',
-  guide: [
-    ['interlace', 'Interlace', 'Frames become strips under each lens'],
-    ['marks', 'Marks', 'Crop marks and an alignment strip'],
-    ['tilt', 'Preview', 'Tilt simulator shows each view'],
-  ],
   details: [
     'The PNG carries its print resolution, so it prints at true size from an app that respects it.',
     'Registration strip: outside the card, one strip per lens is black. With the lens aligned, the whole strip goes dark at once as you tilt; diagonal bands mean the lens is rotated.',
@@ -154,6 +149,7 @@ export default {
     };
 
     const opts = card('Options',
+      pic('marks', 'Marks', 'Crop marks + lens alignment strip'),
       checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'Toggle if 3D looks inside-out.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); drawTilt(); } }),
       checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks + lens alignment strip.', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
       numberField({ label: 'Marks margin', unit: 'mm', value: s().interlace.marginMm, step: 1, min: 4, max: 20, onChange: (v) => { if (v >= 4) { store.update((st) => { st.interlace.marginMm = v; }); invalidate(); } } }),
@@ -190,6 +186,7 @@ export default {
             hint('Own frames? Name them frame_01.png, frame_02.png, …'),
           ),
           card('Generate',
+            pic('interlace', 'Interlace', 'Frames become strips under each lens'),
             h('div', { class: 'btn-row' }, button('Generate interlaced.png', async () => {
               if (!store.assets.frames.length) throw new Error('No frames yet: build or import them first.');
               if (store.framesStatus().stale) {

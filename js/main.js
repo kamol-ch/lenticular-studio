@@ -1,7 +1,7 @@
 // App shell: wizard navigation, sidebar status, project open/save.
 
 import { store } from './store.js';
-import { h, clear, button, toast, downloadBlob, pickFiles, progress, guide, more } from './ui.js';
+import { h, clear, button, toast, downloadBlob, pickFiles, progress, more } from './ui.js';
 import { defaultState } from './core/schema.js';
 import { saveProject, loadProject } from './project-io.js';
 import step1 from './steps/s1-lens.js';
@@ -58,7 +58,7 @@ function renderStep() {
   main.append(
     h('header', { class: 'step-head' },
       h('div', {}, h('p', { class: 'eyebrow' }, `Step ${step.id} of ${STEPS.length}`), h('h2', {}, step.title), step.intro ? h('p', { class: 'lead' }, step.intro) : null)),
-    step.guide ? h('div', { class: 'step-guide' }, guide(step.guide), step.details ? more(...step.details) : null) : null,
+    step.details ? h('div', { class: 'step-guide' }, more(...step.details)) : null,
     body,
     h('footer', { class: 'step-foot' }, prev, h('div', { class: 'spacer' }), skip, next),
   );

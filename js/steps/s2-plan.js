@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, more, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, more, guide, pic, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, frameGeometry, orientationForEffect, printableMm, fitsOn } from '../core/geometry.js';
 import { computePlan } from '../core/planner.js';
 import { maxMotionMmPerFrame } from '../core/motion.js';
@@ -59,12 +59,6 @@ export default {
   title: 'Card & frame plan',
   subtitle: 'Effect, size, frames',
   intro: 'Choose the effect and card size; the plan shows what the lens can carry.',
-  guide: [
-    ['effect3d', '3D', 'Vertical ridges: each eye sees a view'],
-    ['effectAnim', 'Animation', 'Horizontal ridges: tilt to play'],
-    ['bleed', 'Card + bleed', 'Extra image past the cut line'],
-    ['framesEyes', 'Frames', 'How many views fit in a lens'],
-  ],
   details: [
     '3D needs vertical ridges, so your two eyes look through different strips and see different views. Animation uses horizontal ridges, so both eyes see the same frame and it changes as you tilt the card toward you.',
     'Frames between the eyes: how many frames apart your two eyes are at viewing distance. Under 1.5 the 3D looks weak.',
@@ -82,11 +76,19 @@ export default {
       label: 'Ridge direction', value: s().orientation, options: RIDGES,
       onChange: (v) => set((st) => { st.orientation = v; }),
     });
+    const effectArt = h('div');
+    const renderEffectArt = () => effectArt.replaceChildren({
+      '3d': pic('effect3d', '3D', 'Each eye sees a different view'),
+      animation: pic('effectAnim', 'Animation', 'Tilt the card to play it'),
+      '3d-motion': guide([['effect3d', '3D', 'Each eye, another view'], ['effectAnim', '+ motion', 'Subtle, on tilt']]),
+    }[s().effect]);
+    renderEffectArt();
     const effectSel = selectField({
       label: 'Effect', value: s().effect, options: EFFECTS,
       onChange: (v) => {
         set((st) => { st.effect = v; st.orientation = orientationForEffect(v); });
         ridgeSel.querySelector('select').value = s().orientation;
+        renderEffectArt();
       },
     });
 
@@ -141,13 +143,14 @@ export default {
 
     root.append(
       h('div', { class: 'cols' },
-        card('Effect', effectSel, ridgeSel, tip('The ridge direction follows the effect.', 'Lay the lens with its ridges this way on the print. Override it only if you know why: 3D with horizontal ridges shows no depth.')),
-        card('Card', preset, sizeFields, tip('Bleed is extra picture past the cut line.', 'If your cut drifts a little, you cut into the bleed instead of exposing white paper. 2–3 mm is typical.')),
+        card('Effect', effectArt, effectSel, ridgeSel, tip('The ridge direction follows the effect.', 'Lay the lens with its ridges this way on the print. Override it only if you know why: 3D with horizontal ridges shows no depth.')),
+        card('Card', pic('bleed', 'Card + bleed', 'Red dashes = where you cut'), preset, sizeFields, tip('Bleed is extra picture past the cut line.', 'If your cut drifts a little, you cut into the bleed instead of exposing white paper. 2–3 mm is typical.')),
       ),
       cardWarn,
       h('div', { class: 'cols-wide' },
         card('Plan', stats, h('div', { style: { marginTop: '14px' } }, warn)),
         card('Settings',
+          pic('framesEyes', 'Frames between the eyes', 'Aim for 1.5 or more for 3D'),
           framesField,
           numberField({
             label: 'Depth budget', unit: 'lens widths / frame', value: s().plan.budgetLensPerFrame, step: 0.1, min: 0.1, max: 3,

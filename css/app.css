@@ -239,4 +239,6 @@ input[type=range] { width: 100%; accent-color: var(--primary); }
 .more-body p { margin: 0 0 .5em; }
 .more-body p:last-child { margin-bottom: 0; }
 .tip .hint { margin-bottom: 0; }
-.step-guide { margin-bottom: 18px; }
+.step-guide { margin: -8px 0 18px; }
+.card .guide { margin: 4px 0 12px; }
+.guide-single { grid-template-columns: minmax(0, 260px); }

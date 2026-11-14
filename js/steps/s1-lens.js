@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, guide, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
+import { h, card, row, hint, tip, guide, pic, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, pitchPx, MEDIA_PRESETS, testSheetMm, printableMm } from '../core/geometry.js';
 import { SLICES, applySlice } from '../core/schema.js';
 import { makePitchTest, makeAngleTest, makeFlipTest, pitchCandidates, ANGLE_TEST_FRAMES } from '../testsheets.js';
@@ -10,12 +10,6 @@ export default {
   title: 'Printer & lens',
   subtitle: 'Calibrate once',
   intro: 'Measure your printer and lens once, then reuse the profile for every card.',
-  guide: [
-    ['printer', 'Set up the printer', 'Resolution and paper'],
-    ['lens', 'Describe the lens', 'LPI on the packet'],
-    ['pitchTest', 'Pitch test', 'Find the stripe-free band'],
-    ['phoneTilt:32:3', 'Viewing angle', 'Tilt with a phone level'],
-  ],
   details: [
     'Calibration is about the hardware, not the card: the true lens pitch (it is never exactly what the packet says) and how far you tilt before the picture repeats.',
     'Do it once per lens and printer. Export lens-profile.json at the bottom of this step and import it for every new card.',
@@ -30,6 +24,7 @@ export default {
 
     // ---------- 1 · printer ----------
     const printer = card('1 · Printer resolution',
+      pic('printer', 'Native resolution', 'The file reaches the paper 1:1'),
       selectField({
         label: 'Print resolution', value: s().printer.ppi, options: RESOLUTIONS,
         onChange: (v) => set((st) => { st.printer.ppi = Number(v); }),
@@ -68,6 +63,7 @@ export default {
 
     // ---------- 3 · lens ----------
     const lens = card('3 · Lens',
+      pic('lens', 'Lenses per inch', 'Printed on the lens packet'),
       numberField({ label: 'Nominal LPI', unit: 'LPI', value: s().lens.lpiNominal, step: 0.1, min: 10, onChange: (v) => v > 0 && set((st) => { st.lens.lpiNominal = v; }) }),
       row(
         numberField({ label: 'Lens sheet width', unit: 'mm', value: s().lens.sheetWidthMm, placeholder: 'optional', onChange: (v) => set((st) => { st.lens.sheetWidthMm = v; }) }),
@@ -138,7 +134,7 @@ export default {
 
     // ---------- 6 · flip ----------
     const flip = card('6 · Final check (optional)',
-      guide([['flip', 'A clean A ↔ B flip', 'No stripes, no ghost letter']]),
+      pic('flip', 'A clean A ↔ B flip', 'No stripes, no ghost letter'),
       tip('Prints with your measured values: a last check before photo paper.'),
       h('div', { class: 'btn-row' },
         button('Download A/B flip test', async () => {

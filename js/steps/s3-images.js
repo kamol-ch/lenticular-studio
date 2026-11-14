@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, numberField, textField, slider, checkbox, button, dropZone, downloadBlob, pickFiles, toast, clear } from '../ui.js';
+import { h, card, row, hint, tip, guide, numberField, textField, slider, checkbox, button, dropZone, downloadBlob, pickFiles, toast, clear } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
 import { sizeForDisplay, ctx2d } from '../canvas.js';
 import { renderComposite } from '../compose.js';
@@ -42,11 +42,6 @@ export default {
   title: 'Images',
   subtitle: 'Paintings & layers',
   intro: 'Add your painting: one scan, or separate layers for 3D.',
-  guide: [
-    ['layers', 'Upload', 'One scan, or PNG cut-out layers'],
-    ['arrange', 'Arrange', 'Drag to move, scroll to resize'],
-    ['bleed', 'Fill to the edge', 'Cover the bleed past the red line'],
-  ],
   details: [
     'Layers stack bottom to top: the last one in the list is the back of the card. Use PNG with transparency for cut-outs such as a flower in front of a sky.',
     'For 3D, give each layer a depth here or in Step 5. Paint layers a little wider than needed: 3D shifts reveal their edges.',
@@ -213,6 +208,7 @@ export default {
         card(null, stage, hint('Drag to move · scroll to resize · red dashes = cut line')),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: '18px' } },
           card('Layers',
+            guide([['layers', 'Upload', 'A scan, or PNG cut-outs'], ['arrange', 'Arrange', 'Drag to move, scroll to size']]),
             dropZone({ accept: 'image/*', multiple: true, onFiles, label: 'Drop scans or PNG layers here, or click to choose' }),
             h('div', { style: { marginTop: '12px' } }, list),
             props),

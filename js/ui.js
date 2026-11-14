@@ -192,10 +192,11 @@ export function art(spec) {
 
 /** Numbered picture strip: items = [artName, title, caption?]. */
 export function guide(items) {
+  const numbered = items.length > 1;
   return h('ol', { class: 'guide' }, items.map(([name, title, text], i) => h('li', { class: 'guide-item' },
     art(name),
     h('div', { class: 'guide-cap' },
-      h('span', { class: 'guide-n' }, i + 1),
+      numbered ? h('span', { class: 'guide-n' }, i + 1) : null,
       h('div', {}, h('strong', {}, title), text ? h('span', {}, text) : null)))));
 }
 
@@ -209,4 +210,11 @@ export function more(...children) {
 /** One short line, with optional detail behind "More detail". */
 export function tip(short, ...detail) {
   return h('div', { class: 'tip' }, h('p', { class: 'hint' }, short), detail.length ? more(...detail) : null);
+}
+
+/** One instruction picture inside a card. */
+export function pic(spec, title, text) {
+  const g = guide([[spec, title, text]]);
+  g.classList.add('guide-single');
+  return g;
 }

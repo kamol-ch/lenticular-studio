@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, more, slider, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings, selectField } from '../ui.js';
+import { h, card, row, hint, tip, more, pic, slider, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings, selectField } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
 import { applyBrush, createDepthMap, edgeCleanup } from '../core/depthmap.js';
 import { makeCanvas, ctx2d, sizeForDisplay, canvasToBlob, depthMapToCanvas, depthMapFromBlob, imageDataOf } from '../canvas.js';
@@ -79,11 +79,6 @@ export default {
   subtitle: 'Layers or AI depth',
   optional: true,
   intro: 'Optional. Add depth, then build the frames.',
-  guide: [
-    ['depthLayers', 'Layers', 'Set each layer near or far'],
-    ['depthMap', 'Or a depth map', 'AI estimate, then paint fixes'],
-    ['anaglyph', 'Check it', 'Wiggle and red/cyan previews'],
-  ],
   details: [
     'Key plane: the depth that stays still and sharpest, usually the main subject. Things nearer pop out of the card; farther ones sink behind it.',
     'Strength scales the effect. Keep the largest shift within the depth budget (Step 2), or the print blurs. "Fit strength to budget" sets the maximum safe value.',
@@ -141,6 +136,7 @@ export default {
       });
     };
     const layersPanel = card('Layer depths',
+      pic('depthLayers', 'Near and far', 'The key plane stays still'),
       tip('Back layers far (−), front layers near (+).', 'Each frame shifts a layer by (depth − key plane) × strength × budget pixels, so layers at the key plane stay still.'),
       layersBox,
       h('div', { class: 'btn-row' }, button('Spread evenly (back −1 → front +1)', () => {
@@ -198,6 +194,7 @@ export default {
 
     let dil = 2, blr = 2;
     const aiPanel = card('Depth map',
+      pic('depthMap', 'Depth map', 'White = near, black = far'),
       tip('White = near, black = far. Start with AI, then paint fixes.', 'Estimate with AI (Depth Anything, runs in your browser), start from your layers, or import a depth.png. Then brush nearer/farther where the estimate is wrong, and smooth harsh edges.'),
       h('div', { class: 'btn-row' },
         button('Estimate with AI', async () => {

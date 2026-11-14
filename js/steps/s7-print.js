@@ -1,4 +1,4 @@
-import { h, card, checkbox, hint, tip, more, button, downloadBlob, stat, fmt } from '../ui.js';
+import { h, card, checkbox, hint, tip, more, guide, pic, button, downloadBlob, stat, fmt } from '../ui.js';
 import { pxToMm, lpiInUse } from '../core/geometry.js';
 
 const CHECKLIST = [
@@ -15,13 +15,6 @@ export default {
   title: 'Print & mount',
   subtitle: 'Settings & assembly',
   intro: 'Print at true size, then put the lens on.',
-  guide: [
-    ['print', 'Print at 100%', 'Let it dry fully'],
-    ['align', 'Align the lens', 'Ridges along the strip'],
-    ['tape', 'Tape one edge', 'Once it looks right'],
-    ['roll', 'Glue and roll', 'From the taped edge'],
-    ['trim', 'Trim', 'Through lens and print'],
-  ],
   render(root, { store }) {
     const s = store.state;
     const info = store.assets.outputInfo;
@@ -30,6 +23,7 @@ export default {
     root.append(
       h('div', { class: 'cols' },
         card('Your file',
+          pic('print', 'Print at 100%', 'Then let it dry fully'),
           out && info
             ? h('div', { class: 'stats' },
               stat('Print size', `${fmt.n(pxToMm(info.width, s.printer.ppi), 1)} × ${fmt.n(pxToMm(info.height, s.printer.ppi), 1)} mm`),
@@ -49,6 +43,7 @@ export default {
       ),
       h('div', { class: 'cols' },
         card('Mounting',
+          guide([['align', 'Align the lens', 'Ridges along the strip'], ['tape', 'Tape one edge', 'Once it looks right'], ['roll', 'Glue and roll', 'From the taped edge'], ['trim', 'Trim', 'Through lens and print']]),
           tip(s.orientation === 'vertical' ? 'Ridged side up, ridges running top to bottom.' : 'Ridged side up, ridges running left to right.'),
           more(h('ol', { class: 'steps-list' },
             h('li', {}, 'Let the print dry fully (at least 1 hour for dye inks; overnight is safer).'),
@@ -64,7 +59,7 @@ export default {
           h('dl', { class: 'trouble' },
             h('dt', {}, 'Bands or beating stripes across the card'), h('dd', {}, 'Pitch is off: re-run the pitch test and enter the measured LPI. Also check bidirectional (High Speed) printing is OFF.'),
             h('dt', {}, 'Ghosting / double images'), h('dd', {}, 'Too much motion or depth per frame. Lower depth strength (Step 5) or effect amounts (Step 4), or the depth budget (Step 2).'),
-            h('dt', {}, 'Effect happens in the wrong direction'), h('dd', {}, 'Rotate the lens 90°, or change the ridge orientation in Step 1 and re-interlace.'),
+            h('dt', {}, 'Effect happens in the wrong direction'), h('dd', {}, 'Rotate the lens 90°, or change the ridge direction in Step 2 and re-interlace.'),
             h('dt', {}, '3D looks inside-out'), h('dd', {}, 'Toggle "Reverse frame order" in Step 6 and print again.'),
             h('dt', {}, 'Image looks fine at one angle, smeared at others'), h('dd', {}, 'The lens is slightly rotated. Re-align it using the registration strips before gluing.'),
             h('dt', {}, 'Print size is wrong'), h('dd', {}, 'The print app scaled the image. Turn off fit-to-page and print at 100% / actual size.'),

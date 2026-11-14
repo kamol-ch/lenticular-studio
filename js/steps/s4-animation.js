@@ -1,4 +1,4 @@
-import { h, card, row, hint, tip, numberField, selectField, slider, checkbox, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
+import { h, card, row, hint, tip, pic, numberField, selectField, slider, checkbox, button, radios, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
 import { bleedBoxPx, mmToPx } from '../core/geometry.js';
 import { EFFECT_TYPES, EASINGS, newEffect, maxMotionMmPerFrame } from '../core/motion.js';
 import { frameOrder, evenlySpacedTimes, estimateShift, toGray } from '../core/sequence.js';
@@ -74,11 +74,6 @@ export default {
   subtitle: 'Motion or video',
   optional: true,
   intro: 'Optional. Make part of the card move as you tilt it.',
-  guide: [
-    ['motion', 'Simple motion', 'Bob, drift, sway or fade a layer'],
-    ['mask', 'Or paint a mask', 'Move just one part of a scan'],
-    ['video', 'Or use a clip', 'A 2–3 s video becomes frames'],
-  ],
   details: [
     'Small motions read best through a lens. Moving more than about one lens width between frames causes ghosting; the warning below tells you when.',
     'Animation looks best with horizontal ridges (set in Step 2). Combined with 3D (vertical ridges), keep motion very subtle.',
@@ -257,6 +252,7 @@ export default {
     };
 
     const simplePanel = card('Simple motion',
+      pic('motion', 'Small moves', 'Bob, drift, sway, scale or fade'),
       effectsBox,
       h('div', { class: 'btn-row' },
         button('+ Add effect', () => {
@@ -265,6 +261,7 @@ export default {
           renderEffects(); schedule();
         })),
       h('h4', {}, 'Mask'),
+      pic('mask', 'Paint what moves', 'For one part of a single scan'),
       paintToggle, maskTools,
       motionWarn,
     );
@@ -288,6 +285,7 @@ export default {
     }, { kind: 'small' });
 
     const clipPanel = card('From video clip',
+      pic('video', 'Clip → frames', '2–3 s of gentle motion'),
       tip('Pick a 2–3 s stretch of gentle motion.', 'Make the clip in any video tool. Set start and end while scrubbing the video, then extract. Ping-pong plays the clip forward then back, so tilting either way looks seamless.'),
       h('div', { class: 'btn-row' }, button('Choose video…', async () => { const [f] = await pickFiles({ accept: 'video/*' }); if (f) loadVideo(f); }), clipInfo),
       video,
