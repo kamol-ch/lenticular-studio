@@ -230,7 +230,7 @@ input[type=range] { width: 100%; accent-color: var(--primary); }
 .art .t { fill: var(--text); font: 600 11px system-ui, sans-serif; }
 .art .tm { fill: var(--muted); font: 10px system-ui, sans-serif; }
 
-.more { margin-top: 6px; }
+.more { margin: 6px 0 14px; }
 .more summary { cursor: pointer; color: var(--primary); font-size: .85rem; font-weight: 550; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::before { content: '+'; display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid currentColor; border-radius: 50%; font-size: .75rem; line-height: 1; }
@@ -242,3 +242,5 @@ input[type=range] { width: 100%; accent-color: var(--primary); }
 .step-guide { margin: -8px 0 18px; }
 .card .guide { margin: 4px 0 12px; }
 .guide-single { grid-template-columns: minmax(0, 260px); }
+
+.field-range { margin: -4px 0 6px; font-size: .8rem; color: var(--muted); }

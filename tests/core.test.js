@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computePlan, eyeAngleDeg, depthUsage } from '../js/core/planner.js';
+import { computePlan, eyeAngleDeg, depthUsage, frameRange } from '../js/core/planner.js';
 import { effectState, maxMotionMmPerFrame, newEffect, stateForTarget } from '../js/core/motion.js';
 import { forwardWarp, layerShiftPx, viewGain } from '../js/core/warp.js';
 import { applyBrush, boxBlur, createDepthMap, dilate, resampleToSigned } from '../js/core/depthmap.js';
@@ -18,6 +18,19 @@ test('planner: 720 ppi / 75 LPI defaults', () => {
   assert.ok(Math.abs(p.framesBetweenEyes - (eyeAngleDeg() * 8) / 32) < 1e-9);
   assert.ok(Math.abs(p.maxShiftPxPerFrame - 9.6) < 1e-9);
   assert.ok(!p.warnings.some((w) => w.level === 'error'));
+});
+
+test('planner: recommended frame range', () => {
+  const eye = eyeAngleDeg();
+  // 32° lens: 1.5 × 32 / 9.0 = 5.3 → at least 6 frames for 3D, at most 9 at 720 ppi / 75 LPI
+  assert.deepEqual(frameRange({ maxFrames: 9, eyeAngleDeg: eye, viewingAngleDeg: 32, effect: '3d' }), { min: 6, max: 9, wants3d: true, reachable: true });
+  assert.equal(frameRange({ maxFrames: 9, eyeAngleDeg: eye, viewingAngleDeg: 32, effect: 'animation' }).min, 2);
+  // very wide lens: 3D minimum out of reach
+  const wide = frameRange({ maxFrames: 9, eyeAngleDeg: eye, viewingAngleDeg: 60, effect: '3d' });
+  assert.equal(wide.reachable, false);
+  assert.equal(wide.min, 9);
+  const p = computePlan({ ppi: 720, lpi: 75, frames: 8, viewingAngleDeg: 32, card });
+  assert.deepEqual([p.frameRange.min, p.frameRange.max], [6, 9]);
 });
 
 test('planner warnings: weak 3D, too many frames, blur', () => {

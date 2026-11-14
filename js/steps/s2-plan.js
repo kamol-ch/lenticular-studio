@@ -1,6 +1,6 @@
 import { h, card, row, hint, tip, more, guide, pic, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, frameGeometry, orientationForEffect, printableMm, fitsOn } from '../core/geometry.js';
-import { computePlan } from '../core/planner.js';
+import { computePlan, BUDGET_RANGE, SAMPLES_RANGE } from '../core/planner.js';
 import { maxMotionMmPerFrame } from '../core/motion.js';
 import { mmToPx } from '../core/geometry.js';
 import { SLICES, applySlice } from '../core/schema.js';
@@ -132,14 +132,79 @@ export default {
       cardWarn.replaceChildren(warnings(cardWarnings(s())) || '');
     };
 
+    // ---------- settings with live ranges ----------
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const framesRange = h('p', { class: 'field-range' });
+    const budgetRange = h('p', { class: 'field-range' });
     const framesField = numberField({
-      label: 'Frames', value: s().plan.frames, step: 1, min: 2, max: 32,
-      onChange: (v) => {
-        const n = Math.round(v);
-        if (n >= 2 && n <= 32) store.update((st) => { st.plan.frames = n; });
+      label: 'Frames', value: s().plan.frames, step: 1, min: 2, max: planFor(s()).maxFrames,
+      onChange: (v, input) => {
+        if (v == null) return;
+        const n = clamp(Math.round(v), 2, planFor(s()).maxFrames);
+        input.value = n;
+        if (n !== Math.round(v)) toast(`Frames limited to ${n}: the most this lens and printer can hold.`);
+        store.update((st) => { st.plan.frames = n; });
       },
-      hint: 'Default 8. More = smoother, narrower strips.',
     });
+    const budgetField = numberField({
+      label: 'Depth budget', unit: 'lens widths / frame', value: s().plan.budgetLensPerFrame, step: 0.1, min: BUDGET_RANGE.min, max: BUDGET_RANGE.max,
+      onChange: (v, input) => {
+        if (v == null) return;
+        const b = +clamp(v, BUDGET_RANGE.min, BUDGET_RANGE.max).toFixed(2);
+        input.value = b;
+        store.update((st) => { st.plan.budgetLensPerFrame = b; });
+      },
+    });
+    const samplesField = numberField({
+      label: 'Frame samples per lens', value: s().plan.samplesPerLens, step: 1, min: SAMPLES_RANGE.min, max: SAMPLES_RANGE.max,
+      onChange: (v, input) => {
+        if (v == null) return;
+        const n = clamp(Math.round(v), SAMPLES_RANGE.min, SAMPLES_RANGE.max);
+        input.value = n;
+        store.update((st) => { st.plan.samplesPerLens = n; });
+      },
+    });
+
+    const refreshRanges = () => {
+      const p = planFor(s());
+      const r = p.frameRange;
+      framesField.querySelector('input').max = p.maxFrames;
+      const use = r.wants3d
+        ? (r.reachable ? `Use ${r.min}–${r.max} for 3D.` : `Use ${r.max} (strong 3D is out of reach with this lens).`)
+        : `Use 2–${r.max} for animation.`;
+      framesRange.textContent = `Range 2–${p.maxFrames} · ${use} Default 8.`;
+      maxLine.textContent = `Maximum = pixels per lens, rounded down: ${s().printer.ppi} ppi ÷ ${fmt.n(lpiInUse(s().lens), 2)} LPI = ${fmt.n(p.pitchPx, 2)} → ${p.maxFrames} frames. Every frame needs at least one printed pixel in each lens.`;
+      budgetRange.textContent = `${BUDGET_RANGE.min}–${BUDGET_RANGE.max} · 1.0 = ${fmt.n(p.pitchPx, 1)} px per frame here. 0.5 sharp, 1.0 usual, over 1.5 ghosty.`;
+    };
+
+    const maxLine = h('p');
+    const framesDetail = more(
+        maxLine,
+        'For 3D your two eyes must land at least 1.5 frames apart: frames between the eyes ≈ eye angle × frames ÷ viewing angle. That sets the 3D minimum. Animation works from 2 frames (a simple flip).',
+        'More frames make tilting smoother, but each frame gets a narrower strip.',
+    );
+
+    const settingsCard = card('Settings',
+      pic('framesEyes', 'Frames between the eyes', 'Aim for 1.5 or more for 3D'),
+      framesField, framesRange, framesDetail,
+      budgetField, budgetRange,
+      more(
+        'The most anything in the picture may move from one frame to the next, in lens widths. If an object jumps further than about one lens between frames, the lens shows two copies of it: ghosting.',
+        'It is not measured: it trades sharpness for depth. Steps 4 and 5 use it to cap layer shifts and motion. Total depth front to back = budget × (frames − 1).',
+        'Leave it at 1. Lower it if a test print shows double edges; raise it a little if the 3D looks flat but stays sharp.',
+      ),
+      row(
+        numberField({ label: 'Viewing distance', unit: 'mm', value: s().plan.viewDistMm, step: 10, min: 100, onChange: (v) => v > 0 && store.update((st) => { st.plan.viewDistMm = v; }) }),
+        numberField({ label: 'Eye separation', unit: 'mm', value: s().plan.ipdMm, step: 1, min: 40, onChange: (v) => v > 0 && store.update((st) => { st.plan.ipdMm = v; }) }),
+      ),
+      more('Used only to work out how many frames apart your eyes are. 400 mm (arm\'s length) and 63 mm (average adult) suit most people.'),
+      samplesField,
+      h('p', { class: 'field-range' }, `${SAMPLES_RANGE.min}–${SAMPLES_RANGE.max} · 2–3 is plenty. Leave at 3.`),
+      more(
+        'An internal memory setting, not a property of your hardware. Frames are stored squeezed across the ridges, because each lens shows only one thin strip of each frame. 3 means 3 pixels per lens width.',
+        '1 is too coarse (fine detail can turn into moiré). 4–8 look the same as 3 but use more memory and run slower.',
+      ),
+    );
 
     root.append(
       h('div', { class: 'cols' },
@@ -149,24 +214,7 @@ export default {
       cardWarn,
       h('div', { class: 'cols-wide' },
         card('Plan', stats, h('div', { style: { marginTop: '14px' } }, warn)),
-        card('Settings',
-          pic('framesEyes', 'Frames between the eyes', 'Aim for 1.5 or more for 3D'),
-          framesField,
-          numberField({
-            label: 'Depth budget', unit: 'lens widths / frame', value: s().plan.budgetLensPerFrame, step: 0.1, min: 0.1, max: 3,
-            onChange: (v) => v > 0 && store.update((st) => { st.plan.budgetLensPerFrame = v; }),
-            hint: 'Lower = sharper but flatter.',
-          }),
-          row(
-            numberField({ label: 'Viewing distance', unit: 'mm', value: s().plan.viewDistMm, step: 10, min: 100, onChange: (v) => v > 0 && store.update((st) => { st.plan.viewDistMm = v; }) }),
-            numberField({ label: 'Eye separation', unit: 'mm', value: s().plan.ipdMm, step: 1, min: 40, onChange: (v) => v > 0 && store.update((st) => { st.plan.ipdMm = v; }) }),
-          ),
-          numberField({
-            label: 'Frame samples per lens', value: s().plan.samplesPerLens, step: 1, min: 1, max: 8,
-            onChange: (v) => v >= 1 && store.update((st) => { st.plan.samplesPerLens = Math.round(v); }),
-          }),
-          more('Viewing distance and eye separation set how many frames apart your eyes are. Samples per lens is the working resolution of the frames across the ridges; 2–3 is plenty because each lens shows one sample of each frame.'),
-        ),
+        settingsCard,
       ),
       card('Import / export',
         h('div', { class: 'btn-row' },
@@ -185,7 +233,11 @@ export default {
         tip('Changing these makes built frames out of date.', 'Rebuild them in Step 5 or 6 after changing frames, card size or lens settings.'),
       ),
     );
-    refresh();
-    return store.on('change', refresh);
+    const refreshAll = () => {
+      refresh();
+      refreshRanges();
+    };
+    refreshAll();
+    return store.on('change', refreshAll);
   },
 };

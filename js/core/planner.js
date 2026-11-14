@@ -30,6 +30,21 @@ export function depthUsage({ mode, keyPlane = 0, strength = 0, layers = [] }, bu
   return { pxPerFrame: ratio * budgetPx, ratio };
 }
 
+export const MIN_FRAMES_BETWEEN_EYES = 1.5;
+export const BUDGET_RANGE = { min: 0.1, max: 3 };
+export const SAMPLES_RANGE = { min: 1, max: 8 };
+
+/**
+ * Usable frame counts. The maximum is one printed pixel per frame per lens.
+ * For 3D the minimum keeps the eyes ≥ 1.5 frames apart; animation needs 2.
+ */
+export function frameRange({ maxFrames, eyeAngleDeg: eye, viewingAngleDeg: theta, effect }) {
+  const wants3d = effect !== 'animation';
+  const min3d = Math.ceil((MIN_FRAMES_BETWEEN_EYES * theta) / eye - 1e-9);
+  const min = wants3d ? Math.max(2, Math.min(maxFrames, min3d)) : 2;
+  return { min, max: maxFrames, wants3d, reachable: !wants3d || min3d <= maxFrames };
+}
+
 /**
  * @param {object} p
  * @param {number} p.ppi
@@ -92,9 +107,18 @@ export function computePlan({
     });
   }
 
+  const range = frameRange({ maxFrames, eyeAngleDeg: eye, viewingAngleDeg: theta, effect });
+  if (wants3d && !range.reachable) {
+    warnings.push({
+      level: 'warn', code: 'no-strong-3d',
+      text: `This lens and printer cannot reach 1.5 frames between the eyes even at ${maxFrames} frames. Use a higher resolution or a lens with a narrower viewing angle for stronger 3D.`,
+    });
+  }
+
   return {
     pitchPx: pitch,
     maxFrames,
+    frameRange: range,
     eyeAngleDeg: eye,
     viewingAngleDeg: theta,
     angleKnown,
