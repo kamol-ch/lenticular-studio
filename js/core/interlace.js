@@ -64,7 +64,7 @@ export function planPage({ outW, outH, marginPx = 0, tile = false, media, ppi = 
  */
 export function createInterlacer({
   frames, outW, outH, pitch, orientation = 'vertical', reverse = false, phaseOffset = 0,
-  marks = false, marginMm = 8, tile = false, media, ppi = 720, bleedPx = 0,
+  marks = false, marginMm = 8, tile = false, media, ppi = 720, bleedPx = 0, overlay = [],
 }) {
   const n = frames.length;
   if (n < 1) throw new Error('No frames to interlace.');
@@ -160,6 +160,12 @@ export function createInterlacer({
       const ly = y - p.y;
       if (ly >= 0 && ly < outH) renderCardRow(rgb, p.x, ly, y);
       if (marginPx > 0) renderMarksRow(rgb, p.x, p.y, y);
+    }
+    // Flat rectangles painted last, in page px (e.g. a test sheet's border and scale bar).
+    for (const r of overlay) {
+      if (y < r.y || y >= r.y + r.h) continue;
+      const x0 = Math.max(0, r.x), x1 = Math.min(pageW, r.x + r.w);
+      for (let x = x0; x < x1; x++) put(rgb, x, r.v);
     }
   }
 
