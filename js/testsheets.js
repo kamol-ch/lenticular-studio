@@ -1,4 +1,4 @@
-// Calibration sheets (plan §5 Step 1): pitch test, viewing-angle test, 2-frame flip.
+// Calibration sheets (plan §5 Step 1): pitch test, viewing-angle test, ink-spread test, 2-frame flip.
 
 import { mmToPx, frameGeometry, bleedBoxPx, testSheetMm } from './core/geometry.js';
 import { frameIndexAt } from './core/interlace.js';
@@ -186,5 +186,55 @@ export async function makeFlipTest(state0, onProgress) {
     x.fillText(i === 0 ? 'A' : 'B', W / 2, H / 2);
   }, size.drawLabel);
   const r = await interlaceCanvases(frames, interlaceParams(state, { tile: false, overlay: size.overlay }), onProgress);
+  return r.blob;
+}
+
+/** Ink-spread levels on the spread test sheet, in mm per strip edge. */
+export const SPREAD_TEST_MM = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06];
+
+/**
+ * Ink-spread test: a two-frame flip (A = white, B = black) split into bands,
+ * each printed with a different spread compensation. Without the lens the best
+ * band shows even stripes; through the lens it gives the cleanest white A and
+ * the deepest black B.
+ */
+export async function makeSpreadTest(state0, onProgress) {
+  const state = testState(state0, 2);
+  const size = interlacedSizeCheck(state);
+  const ppi = state.printer.ppi;
+  const { w: W, h: H } = bleedBoxPx(state.card, ppi);
+  const mp = state.interlace.marks ? Math.round(mmToPx(state.interlace.marginMm, ppi)) : 0;
+  const top = Math.round(mmToPx(4, ppi)), bottom = Math.round(mmToPx(14, ppi));
+  const gap = Math.round(mmToPx(2, ppi));
+  const levels = SPREAD_TEST_MM;
+  const bandH = Math.floor((H - top - bottom) / levels.length);
+  if (bandH < mmToPx(8, ppi)) throw new Error('The test sheet is too short for the spread bands; enter a larger lens sheet size.');
+  const bands = levels.map((mm, i) => ({ mm, y0: top + i * bandH, y1: top + (i + 1) * bandH - gap }));
+  const frames = testFrames(state, 2, (x, i, w, h) => {
+    x.fillStyle = '#fff';
+    x.fillRect(0, 0, w, h);
+    const fpx = Math.min((bandH - gap) * 0.55, mmToPx(9, ppi));
+    x.font = `800 ${Math.round(fpx)}px system-ui, sans-serif`;
+    x.textBaseline = 'middle';
+    const tagW = mmToPx(19, ppi), tagX = mmToPx(3, ppi);
+    for (const b of bands) {
+      const yMid = (b.y0 + b.y1) / 2;
+      x.fillStyle = i === 0 ? '#fff' : '#111';
+      x.fillRect(0, b.y0, w, b.y1 - b.y0);
+      // The letter differs per frame: it only reads through the lens.
+      x.fillStyle = i === 0 ? '#111' : '#fff';
+      x.textAlign = 'center';
+      x.fillText(i === 0 ? 'A' : 'B', w / 2, yMid);
+      // The value tag is identical in both frames, so it prints solid and reads without the lens.
+      x.fillStyle = '#fff';
+      x.fillRect(tagX, b.y0 + (b.y1 - b.y0) * 0.2, tagW, (b.y1 - b.y0) * 0.6);
+      x.fillStyle = '#000';
+      x.font = `700 ${Math.round(Math.min((b.y1 - b.y0) * 0.3, mmToPx(4, ppi)))}px system-ui, sans-serif`;
+      x.fillText(b.mm.toFixed(2), tagX + tagW / 2, yMid);
+      x.font = `800 ${Math.round(fpx)}px system-ui, sans-serif`;
+    }
+  }, size.drawLabel);
+  const spreadRows = bands.map((b) => ({ y0: mp + b.y0, y1: mp + b.y1, px: mmToPx(b.mm, ppi) }));
+  const r = await interlaceCanvases(frames, interlaceParams(state, { tile: false, overlay: size.overlay, smoothEdges: true, spreadPx: 0, spreadRows }), onProgress);
   return r.blob;
 }

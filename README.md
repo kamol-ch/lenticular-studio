@@ -33,12 +33,12 @@ Every step uses a three-pane editor: the step list, a canvas in the middle and a
 
 | Step | What it does | Import / export |
 |---|---|---|
-| 1. Printer & lens | Calibration, once per lens: printer resolution → paper size → nominal LPI (+ lens sheet size) → pitch test → measured LPI → viewing-angle test → measured angle → optional A/B flip check. Test sheets match the lens sheet (100 × 150 mm if unknown), clamped to the paper. | `lens-profile.json`, test PNGs |
+| 1. Printer & lens | Calibration, once per lens: printer resolution → paper size → nominal LPI (+ lens sheet size) → pitch test → measured LPI → viewing-angle test → measured angle → optional ink-spread test → optional A/B flip check. Test sheets match the lens sheet (100 × 150 mm if unknown), clamped to the paper. | `lens-profile.json`, test PNGs |
 | 2. Card & frame plan | Effect (3D / animation / both) → ridge direction, card size + bleed, frames. Shows pixels per lens, frames between the eyes, depth budget, working frame size and memory. Warns about weak 3D, too many frames, blur or ghosting risk, and cards that don't fit the lens sheet or paper. | `plan.json` |
 | 3. Images | Upload a scan or PNG layers. Drag to move, scroll to resize, reorder, set opacity and per-layer depth. | `source.zip` |
 | 4. Animation *(optional)* | **Simple motion** on a layer or a painted mask (drift, bob, sway, scale, fade in/out, flicker, with easing). **Video clip**: pick start/end, extract N frames, optional ping-pong and drift alignment. Looping preview. | `animation.zip` |
 | 5. Depth & 3D *(optional)* | **Layer mode**: shift = (depth − key plane) × strength × budget × (frame − centre). **Depth-map mode**: AI estimate, from layers, or flat. Brush near/far/smooth, plus edge cleanup. Forward warp with z-ordering and background-stretch gap fill. Wiggle and red/cyan anaglyph previews. | `depth.png`, `frames.zip` |
-| 6. Slice & interlace | Fractional-pitch interlacing, reverse order, crop marks and registration strips, tiling on the Step 1 paper with one continuous lens grid, phase offset. 1:1 zoom preview and tilt simulator. | `interlaced.png` (with pHYs ppi) |
+| 6. Slice & interlace | Fractional-pitch interlacing with smooth strip edges and ink-spread compensation, reverse order, crop marks and registration strips, tiling on the Step 1 paper with one continuous lens grid, phase offset. 1:1 zoom preview and tilt simulator. | `interlaced.png` (with pHYs ppi) |
 | 7. Print & mount | Printer checklist (bidirectional OFF), mounting steps, troubleshooting. | |
 
 **Save project** writes everything to one `project.zip` (see plan §4). **Open…** restores it. **New** keeps your Step 1 calibration.
@@ -46,6 +46,7 @@ Every step uses a three-pane editor: the step list, a canvas in the middle and a
 ## How the output stays accurate
 
 - **Interlace mapping** ([js/core/interlace.js](js/core/interlace.js)): for each output column (vertical ridges) or row (horizontal ridges), `u = (pos + 0.5) / pitch + phaseOffset`, and the frame is `floor(frac(u) × N)`, reversed if needed. Pitch is fractional (9.6 px at 720 ppi / 75 LPI, or 9.5898… at a measured 75.08 LPI), so it never drifts across the card. Tiled cards and registration strips use page coordinates, so one lens sheet lines up with all of them.
+- **Smooth edges and ink spread**: at 9.6 px per lens, hard strips round to 4 or 5 px. On glossy paper, ink creeps about 0.03–0.04 mm into the light strips, so the 4 px light strips close up while the 5 px ones survive, which shows as a wavy rhythm. With *Smooth strip edges* each output pixel is a coverage-weighted mix of the strips that cross it, so every strip carries exactly its share. *Ink spread* (Step 1, measured with the ink-spread test sheet) moves every strip boundary that far into the darker strip, so light strips print at the right width once the ink has spread.
 - **Memory**: frames are stored at a *working resolution*: about 3 samples per lens along the interlace axis and full resolution along the other. A 100 × 150 mm frame is about 940 × 4422 px instead of 3005 × 4422. The worker samples frames row by row and streams rows into a PNG encoder through `CompressionStream`, so the full-size image never exists as a canvas.
 - **Print size**: every exported PNG carries a `pHYs` chunk. PNG stores pixels per metre as a whole number, so 720 ppi is saved as 28 346 px/m, which reads back as 719.99 ppi.
 
@@ -86,9 +87,9 @@ js/steps/s1…s7         step UIs
 npm test
 ```
 
-There are 25 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
+There are 34 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
 
-Print tests with the real lens, in order: pitch test → viewing-angle test → 2-frame flip → 3D.
+Print tests with the real lens, in order: pitch test → viewing-angle test → ink-spread test → 2-frame flip → 3D.
 
 ## Known limitations
 

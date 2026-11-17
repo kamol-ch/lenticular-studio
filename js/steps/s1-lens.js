@@ -1,7 +1,7 @@
 import { h, row, tip, guide, pic, section, numberField, selectField, button, downloadBlob, downloadJson, pickFiles, readJsonFile, toast, progress, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, pitchPx, MEDIA_PRESETS, testSheetMm, printableMm, fitsOn } from '../core/geometry.js';
 import { SLICES, applySlice } from '../core/schema.js';
-import { makePitchTest, makeAngleTest, makeFlipTest, pitchCandidates, ANGLE_TEST_FRAMES } from '../testsheets.js';
+import { makePitchTest, makeAngleTest, makeFlipTest, makeSpreadTest, pitchCandidates, ANGLE_TEST_FRAMES, SPREAD_TEST_MM } from '../testsheets.js';
 import { drawSheet, fmtMm } from '../scene.js';
 
 const RESOLUTIONS = [[720, '720 ppi'], [600, '600 ppi'], [1440, '1440 ppi (experimental)'], [1200, '1200 ppi (experimental)'], [300, '300 ppi']];
@@ -9,6 +9,7 @@ const RESOLUTIONS = [[720, '720 ppi'], [600, '600 ppi'], [1440, '1440 ppi (exper
 const SHEETS = {
   pitch: { label: 'Pitch test', file: (s) => `pitch-test-${s.printer.ppi}ppi.png`, make: (s) => makePitchTest(s) },
   angle: { label: 'Viewing-angle test', file: () => 'angle-test.png', make: (s, p) => makeAngleTest(s, p) },
+  spread: { label: 'Ink-spread test', file: () => 'ink-spread-test.png', make: (s, p) => makeSpreadTest(s, p) },
   flip: { label: 'A/B flip test', file: () => 'flip-test-AB.png', make: (s, p) => makeFlipTest(s, p) },
 };
 
@@ -31,7 +32,7 @@ export default {
 
     // ---------- test-sheet previews (the real files, cached) ----------
     const cache = {}; // kind → { key, blob, bitmap, pending }
-    const keyOf = (kind) => { const st = s(); return JSON.stringify([kind, st.printer.ppi, st.media, st.lens, st.tests, st.interlace.marks, st.interlace.marginMm, st.interlace.reverse]); };
+    const keyOf = (kind) => { const st = s(); return JSON.stringify([kind, st.printer.ppi, st.media, st.lens, st.tests, st.interlace.marks, st.interlace.marginMm, st.interlace.reverse, st.interlace.smoothEdges]); };
     const ensure = (kind, { now = false } = {}) => {
       const key = keyOf(kind);
       const c = cache[kind] || (cache[kind] = {});
@@ -174,8 +175,20 @@ export default {
         'For a steadier number, measure two full cycles and halve it. Print this sheet on photo paper: its strips are too fine for plain paper.'),
       { closed: true });
 
-    // ---------- 6 · flip ----------
-    const flip = section('6 · Final check (optional)',
+    // ---------- 6 · ink spread ----------
+    const spread = section('6 · Ink spread (optional)',
+      guide([['spread', 'Find the even band', 'Stripes evenly fine, no waves'], ['flip', 'Check with the lens', 'Whitest A, blackest B']]),
+      h('div', { class: 'btn-row' }, button('Download ink-spread test', download('spread'), { kind: 'small primary' })),
+      numberField({ label: 'Ink spread', unit: 'mm', value: s().printer.inkSpreadMm || 0, step: 0.005, min: 0, max: 0.1, placeholder: '0', onChange: (v) => set((st) => { st.printer.inkSpreadMm = v > 0 ? v : 0; }) }),
+      tip('Ink creeps into the light strips. This widens them by that much.',
+        `Print on the paper and settings you will use for cards. Each band has a different value (${SPREAD_TEST_MM[0]}–${SPREAD_TEST_MM[SPREAD_TEST_MM.length - 1]} mm per edge). Without the lens, under-compensated bands look darker, with a wavy rhythm where thin white strips close up; over-compensated bands look too light.`,
+        'Then lay the lens on and close one eye: in the best band A is the whitest and B the blackest as you tilt. If two bands tie, use the value between them.',
+        'Measured another way: scan the A/B flip test at 1200 dpi. Each white strip should be half a lens wide (0.17 mm at 75 LPI); the ink spread per edge is half of what is missing.',
+        'Applies to the flip test below and to every card in Step 6. Keep it at 0 if you have not tested it.'),
+      { closed: true });
+
+    // ---------- 7 · flip ----------
+    const flip = section('7 · Final check (optional)',
       pic('flip', 'A clean A ↔ B flip', 'One eye closed; little or no ghost letter'),
       h('div', { class: 'btn-row' }, button('Download A/B flip test', download('flip'), { kind: 'small' })),
       tip('Prints with your measured values: a last check before a real card.',
@@ -183,7 +196,7 @@ export default {
       { closed: true });
 
     // Opening a test's section shows that sheet on the canvas.
-    [[pitch, 'pitch'], [angle, 'angle'], [flip, 'flip']].forEach(([sec, kind]) => sec.addEventListener('toggle', () => { if (sec.open) show(kind); }));
+    [[pitch, 'pitch'], [angle, 'angle'], [spread, 'spread'], [flip, 'flip']].forEach(([sec, kind]) => sec.addEventListener('toggle', () => { if (sec.open) show(kind); }));
 
     // ---------- summary ----------
     const summary = h('div', { class: 'stats' });
@@ -198,6 +211,7 @@ export default {
         stat('Pixels per lens', fmt.n(p, 3)),
         stat('Max frames', Math.max(2, Math.floor(p))),
         stat('Viewing angle', st.lens.angleDeg ? `${st.lens.angleDeg}°` : 'not measured'),
+        stat('Ink spread', st.printer.inkSpreadMm ? `${st.printer.inkSpreadMm} mm` : 'none'),
         stat('Paper', st.media.name || `${st.media.widthMm} × ${st.media.heightMm}`),
         stat('Test sheet', `${fmt.n(t.w, 0)} × ${fmt.n(t.h, 0)} mm`));
       const ws = [];
@@ -214,7 +228,7 @@ export default {
       stage.fit();
     };
 
-    inspector.append(printer, paper, lens, pitch, angle, flip,
+    inspector.append(printer, paper, lens, pitch, angle, spread, flip,
       section('Calibration summary', summary, summaryWarn,
         h('div', { class: 'btn-row', style: { marginTop: '10px' } },
           button('Export lens-profile.json', () => downloadJson(SLICES.lens(s()), 'lens-profile.json'), { kind: 'small' }),
