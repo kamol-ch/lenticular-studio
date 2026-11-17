@@ -288,3 +288,13 @@ body.editing { overflow: hidden; }
   .inspector { border-left: 0; border-top: 1px solid var(--line); }
   .insp-body { overflow: visible; }
 }
+
+/* compact controls in the canvas toolbar */
+.stage-bar { flex-wrap: nowrap; }
+.stage-tools { flex: 1 1 auto; min-width: 0; }
+.stage-view { flex: none; }
+.stage-tools .field > label { white-space: nowrap; margin: 0; }
+.stage-tools select { width: auto; padding: 4px 8px; font-size: .86rem; }
+.stage-tools .slider input[type=range] { width: 84px; }
+.stage-tools .check { margin: 0; }
+@media (max-width: 1200px) { .stage-bar { flex-wrap: wrap; } }
