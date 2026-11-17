@@ -20,7 +20,13 @@ Use a current Chrome, Edge, Firefox or Safari (16.4 or later).
 
 ## Editor layout
 
-Steps 2, 3 and 6 use a three-pane editor: the step list, a canvas in the middle and an inspector on the right. The canvas is drawn in millimetres, so the paper, card, bleed and marks are shown at scale. Scroll to zoom, drag the background to pan, double-click to fit, and use **Guides** to hide the overlays. The other steps still use the page layout and will move over in later phases.
+Every step uses a three-pane editor: the step list, a canvas in the middle and an inspector on the right.
+
+- **Canvas:** drawn in millimetres, so paper, card, bleed, marks and test sheets are shown at scale. Scroll to zoom, drag the background to pan, double-click to fit. **Guides** hides the overlays and labels.
+- **Live preview:** Steps 4 and 5 show what the lens will show as you edit. The strip under the canvas has frame thumbnails, a tilt slider and Play. Full-resolution print frames are built automatically in Step 6.
+- **Lens widget:** a docked lens cross-section shows which strips the eyes (Step 2) or the current tilt (Steps 4 to 6) see.
+- **Undo / redo:** Ctrl+Z and Ctrl+Shift+Z, including depth and mask brush strokes.
+- **Autosave:** images, depth map, mask and clip frames are kept in the browser (IndexedDB) and restored on reload. **Save project** still writes a portable `project.zip`.
 
 ## Workflow
 
@@ -48,7 +54,12 @@ Steps 2, 3 and 6 use a three-pane editor: the step list, a canvas in the middle 
 index.html, css/app.css
 js/main.js             wizard shell, sidebar, editor shell, project open/save
 js/stage.js            zoomable canvas (mm units, pan/zoom, guides)
-js/scene.js            card-on-paper layout and overlays for the canvas
+js/scene.js            card-on-paper layout, overlays and lens widget for the canvas
+js/preview.js          live low-resolution frames for the canvas
+js/tiltstrip.js        frame thumbnails, tilt slider and Play
+js/autosave.js         IndexedDB autosave and restore
+js/depth-tools.js      AI depth estimate, depth map from layers
+js/clip-tools.js       video clip → frames
 js/store.js            state (JSON, saved to localStorage) + in-memory assets
 js/core/               pure, DOM-free logic (unit-tested in Node)
   geometry.js          mm/px, pitch, bleed box, working frame size, paper tiling, test-sheet size
@@ -81,6 +92,5 @@ Print tests with the real lens, in order: pitch test → viewing-angle test → 
 ## Known limitations
 
 - Motion on a *painted mask* fills the uncovered area with a soft blur of its surroundings. This works for small motions. Large moves need a separate layer.
-- Depth-map brush strokes have no undo yet. Export `depth.png` before heavy edits.
 - Video decoding uses the browser's codecs. If a clip won't load, re-encode it to H.264 MP4.
 - 1440 ppi works, but frames along the non-interlace axis are capped at 720 ppi to save memory.
