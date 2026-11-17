@@ -109,8 +109,16 @@ export default {
           applyBrush(m, ((p.x - L.card.x) / L.card.w) * m.w, ((p.y - L.card.y) / L.card.h) * m.h, (brushMm() / L.card.w) * m.w, brushS, tool);
           depthCanvas = depthMapToCanvas(m);
         };
+        const before = m.data.slice();
         dab(pt);
-        return { move: dab, up: () => store.touchAssets() };
+        return {
+          move: dab,
+          up: () => {
+            const after = m.data.slice();
+            store.recordAction({ undo: () => { m.data.set(before); store.touchAssets(); }, redo: () => { m.data.set(after); store.touchAssets(); } });
+            store.touchAssets();
+          },
+        };
       },
     });
 
@@ -180,7 +188,12 @@ export default {
       });
     };
 
-    const setMap = (m) => { store.setAssets({ depthMap: m }); setView('overlay'); };
+    const setMap = (m) => {
+      const prev = store.assets.depthMap;
+      store.recordAction({ undo: () => store.setAssets({ depthMap: prev }), redo: () => store.setAssets({ depthMap: m }) });
+      store.setAssets({ depthMap: m });
+      setView('overlay');
+    };
     let dil = 2, blr = 2;
     const layersSec = section('Layer depths', layersBox,
       h('div', { class: 'btn-row' }, button('Spread evenly (back → front)', () => {
@@ -206,14 +219,17 @@ export default {
           if (!store.assets.depthMap) throw new Error('No depth map yet.');
           downloadBlob(await canvasToBlob(depthMapToCanvas(store.assets.depthMap)), 'depth.png');
         }, { kind: 'small ghost' })),
-      tip('Paint on the canvas to correct the map.', 'Choose View → Image + depth, then use the brush in the toolbar: Nearer, Farther or Smooth. Brush strokes cannot be undone yet, so export depth.png before heavy edits.'),
+      tip('Paint on the canvas to correct the map.', 'Choose View → Image + depth, then use the brush in the toolbar: Nearer, Farther or Smooth. Ctrl+Z undoes a stroke.'),
       h('h4', {}, 'Edge cleanup'),
       row(
         slider({ label: 'Grow', value: dil, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { dil = v; } }),
         slider({ label: 'Smooth', value: blr, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { blr = v; } })),
       h('div', { class: 'btn-row' }, button('Apply cleanup', () => {
         if (!store.assets.depthMap) throw new Error('No depth map yet.');
-        edgeCleanup(store.assets.depthMap, { dilateRadius: dil, blurRadius: blr });
+        const m = store.assets.depthMap, before = m.data.slice();
+        edgeCleanup(m, { dilateRadius: dil, blurRadius: blr });
+        const after = m.data.slice();
+        store.recordAction({ undo: () => { m.data.set(before); store.touchAssets(); }, redo: () => { m.data.set(after); store.touchAssets(); } });
         store.touchAssets();
       }, { kind: 'small' })),
       more('Grows near regions slightly, then smooths, so foreground edges carry their own halo instead of tearing.'));

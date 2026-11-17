@@ -18,13 +18,14 @@
     </div>
     <input id="project-name" class="project-name" aria-label="Project name" spellcheck="false">
     <div id="header-progress" class="header-progress"></div>
-    <div class="top-actions"><span id="btn-new"></span><span id="btn-open"></span><span id="btn-save"></span></div>
+    <div class="top-actions"><span id="btn-undo"></span><span id="btn-redo"></span><span id="btn-new"></span><span id="btn-open"></span><span id="btn-save"></span></div>
   </header>
   <div class="layout">
     <nav class="sidebar" aria-label="Steps">
       <ol id="steps"></ol>
       <div id="frames-status" class="frames-status"></div>
       <p class="privacy">Everything runs locally. Nothing is uploaded.</p>
+      <p id="autosave-status" class="privacy" aria-live="polite"></p>
     </nav>
     <main id="main" tabindex="-1"></main>
     <section id="editor" class="editor" hidden>

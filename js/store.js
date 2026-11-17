@@ -5,6 +5,8 @@ import { framesSignature } from './core/geometry.js';
 
 const LS_KEY = 'lenticular-studio:state';
 
+const HISTORY_LIMIT = 60;
+const AUTOSAVED_ASSETS = ['layerFiles', 'animFrames', 'depthMap', 'motionMask'];
 const FRAME_INPUT_ASSETS = ['layerImages', 'animFrames', 'depthMap', 'motionMask'];
 
 export function emptyAssets() {
@@ -32,24 +34,76 @@ class Store extends EventTarget {
     this.assets = emptyAssets();
     this.dirty = false;
     this.assetsRev = 0;
+    this.autosaved = true;
+    this.history = [];
+    this.future = [];
     try {
       const saved = localStorage.getItem(LS_KEY);
       if (saved) this.state = normalizeState(saved);
     } catch (e) {
       console.warn('Could not restore saved settings', e);
     }
+    this._snap = serializeState(this.state);
   }
+
+  // ---------- undo / redo ----------
+  // State edits are recorded as before/after snapshots (edits within half a
+  // second merge into one step); in-place asset edits register their own
+  // undo/redo functions with recordAction().
+
+  _record() {
+    const after = serializeState(this.state);
+    if (after === this._snap) return;
+    const last = this.history.at(-1);
+    const now = Date.now();
+    if (last && last.type === 'state' && now - last.t < 500) { last.after = after; last.t = now; }
+    else this.history.push({ type: 'state', before: this._snap, after, t: now });
+    if (this.history.length > HISTORY_LIMIT) this.history.shift();
+    this._snap = after;
+    this.future = [];
+    this.emit('history');
+  }
+
+  recordAction({ undo, redo, label }) {
+    this.history.push({ type: 'fn', undo, redo, label, t: 0 });
+    if (this.history.length > HISTORY_LIMIT) this.history.shift();
+    this.future = [];
+    this.emit('history');
+  }
+
+  _apply(entry, dir) {
+    if (entry.type === 'state') {
+      this.state = normalizeState(dir === 'undo' ? entry.before : entry.after);
+      this._snap = serializeState(this.state);
+      this.persist();
+      this.autosaved = false;
+      this.emit('change');
+    } else {
+      entry[dir]();
+    }
+    this.emit('history');
+  }
+
+  undo() { const e = this.history.pop(); if (!e) return false; e.t = 0; this.future.push(e); this._apply(e, 'undo'); return true; }
+  redo() { const e = this.future.pop(); if (!e) return false; this.history.push(e); this._apply(e, 'redo'); return true; }
+  get canUndo() { return this.history.length > 0; }
+  get canRedo() { return this.future.length > 0; }
+  clearHistory() { this.history = []; this.future = []; this._snap = serializeState(this.state); this.emit('history'); }
 
   /** Mutate state through a function, then persist and notify. */
   update(fn, { silent = false } = {}) {
     fn(this.state);
     this.persist();
+    this.autosaved = false;
+    this._record();
     if (!silent) this.emit('change');
   }
 
   replaceState(next) {
     this.state = normalizeState(next);
     this.persist();
+    this.autosaved = false;
+    this._record();
     this.emit('change');
   }
 
@@ -58,6 +112,8 @@ class Store extends EventTarget {
     this.assets = { ...emptyAssets(), ...assets };
     this.assetsRev++;
     this.dirty = false;
+    this.autosaved = false;
+    this.clearHistory();
     this.persist();
     this.emit('change');
     this.emit('assets');
@@ -67,6 +123,7 @@ class Store extends EventTarget {
     if (FRAME_INPUT_ASSETS.some((k) => k in patch)) this.assetsRev++;
     Object.assign(this.assets, patch);
     this.dirty = true;
+    if (AUTOSAVED_ASSETS.some((k) => k in patch)) this.autosaved = false;
     this.emit('assets');
   }
 
@@ -90,6 +147,7 @@ class Store extends EventTarget {
   touchAssets() {
     this.assetsRev++;
     this.dirty = true;
+    this.autosaved = false;
     this.emit('assets');
   }
 

@@ -100,8 +100,18 @@ export default {
           c.fill();
           tintCanvas = null;
         };
+        const snap = () => ctx2d(m, { willReadFrequently: true }).getImageData(0, 0, m.width, m.height);
+        const put = (img) => { const c = ctx2d(m); c.globalCompositeOperation = 'source-over'; c.putImageData(img, 0, 0); invalidateMaskCentre(m); store.touchAssets(); };
+        const before = snap();
         dab(pt);
-        return { move: dab, up: () => { invalidateMaskCentre(m); store.touchAssets(); } };
+        return {
+          move: dab,
+          up: () => {
+            const after = snap();
+            store.recordAction({ undo: () => put(before), redo: () => put(after) });
+            invalidateMaskCentre(m); store.touchAssets();
+          },
+        };
       },
     });
 

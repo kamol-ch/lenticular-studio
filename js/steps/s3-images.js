@@ -148,11 +148,8 @@ export default {
       renderList(); renderProps();
     };
     const removeLayer = (l) => {
-      if (!confirm(`Delete layer "${l.name}"?`)) return;
+      // The image stays in memory so Undo can bring the layer back.
       store.update((st) => { st.layers = st.layers.filter((x) => x.id !== l.id); });
-      const { [l.id]: _f, ...files } = store.assets.layerFiles;
-      const { [l.id]: _i, ...imgs } = store.assets.layerImages;
-      store.setAssets({ layerFiles: files, layerImages: imgs });
       select(s().layers.at(-1)?.id || null);
     };
 

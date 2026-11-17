@@ -5,6 +5,7 @@ import { h, clear, button, toast, downloadBlob, pickFiles, progress, more } from
 import { defaultState } from './core/schema.js';
 import { saveProject, loadProject } from './project-io.js';
 import { createStage } from './stage.js';
+import { startAutosave, loadAutosave, clearAutosave } from './autosave.js';
 import step1 from './steps/s1-lens.js';
 import step2 from './steps/s2-plan.js';
 import step3 from './steps/s3-images.js';
@@ -175,12 +176,41 @@ document.getElementById('btn-new').append(button('New', () => {
   // Keep the Step 1 calibration (and the last card size, which is often reused).
   fresh.printer = keep.printer; fresh.media = keep.media; fresh.lens = keep.lens; fresh.tests = keep.tests; fresh.card = keep.card;
   store.replaceAll(fresh, {});
+  clearAutosave();
   go(1);
   route();
 }, { kind: 'ghost', title: 'New project (keeps your lens calibration)' }));
 
 window.addEventListener('beforeunload', (e) => {
-  if (store.dirty) { e.preventDefault(); e.returnValue = ''; }
+  if (!store.autosaved) { e.preventDefault(); e.returnValue = ''; }
 });
 
-route();
+// ---------- undo / redo ----------
+const undoBtn = h('button', { type: 'button', class: 'btn ghost', title: 'Undo (Ctrl+Z)', 'aria-label': 'Undo' }, '↶');
+const redoBtn = h('button', { type: 'button', class: 'btn ghost', title: 'Redo (Ctrl+Shift+Z)', 'aria-label': 'Redo' }, '↷');
+const doUndo = () => { if (store.undo()) renderStep(); };
+const doRedo = () => { if (store.redo()) renderStep(); };
+undoBtn.addEventListener('click', doUndo);
+redoBtn.addEventListener('click', doRedo);
+document.getElementById('btn-undo').append(undoBtn);
+document.getElementById('btn-redo').append(redoBtn);
+const refreshHistory = () => { undoBtn.disabled = !store.canUndo; redoBtn.disabled = !store.canRedo; };
+store.on('history', refreshHistory);
+refreshHistory();
+window.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const t = e.target;
+  if (t instanceof HTMLElement && (t.isContentEditable || (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio'].includes(t.type)) || t.tagName === 'TEXTAREA')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); doRedo(); }
+});
+
+// ---------- autosave ----------
+const autosaveEl = document.getElementById('autosave-status');
+startAutosave(store, (text) => { autosaveEl.textContent = text; });
+
+loadAutosave(store)
+  .then((restored) => { if (restored) { store.clearHistory(); toast('Restored your last session.'); } })
+  .catch((e) => console.warn('No autosave restored', e))
+  .finally(route);
