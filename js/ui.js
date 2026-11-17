@@ -218,3 +218,12 @@ export function pic(spec, title, text) {
   g.classList.add('guide-single');
   return g;
 }
+
+/** Collapsible inspector section. Pass { closed: true } as the last argument to start folded. */
+export function section(title, ...children) {
+  const last = children.at(-1);
+  const opts = last && typeof last === 'object' && !(last instanceof Node) && !Array.isArray(last) ? children.pop() : {};
+  return h('details', { class: 'insp-sec', open: !opts.closed },
+    h('summary', {}, title),
+    h('div', { class: 'insp-sec-body' }, ...children));
+}

@@ -27,6 +27,17 @@
       <p class="privacy">Everything runs locally. Nothing is uploaded.</p>
     </nav>
     <main id="main" tabindex="-1"></main>
+    <section id="editor" class="editor" hidden>
+      <div class="editor-center">
+        <div class="stage-bar">
+          <div id="stage-tools" class="stage-tools"></div>
+          <div id="stage-view" class="stage-view"></div>
+        </div>
+        <div id="stage" class="stage-host"></div>
+        <div id="stage-strip" class="stage-strip" hidden></div>
+      </div>
+      <aside id="inspector" class="inspector" aria-label="Step settings"></aside>
+    </section>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <noscript>This app needs JavaScript.</noscript>

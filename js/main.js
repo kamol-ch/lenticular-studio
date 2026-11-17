@@ -4,6 +4,7 @@ import { store } from './store.js';
 import { h, clear, button, toast, downloadBlob, pickFiles, progress, more } from './ui.js';
 import { defaultState } from './core/schema.js';
 import { saveProject, loadProject } from './project-io.js';
+import { createStage } from './stage.js';
 import step1 from './steps/s1-lens.js';
 import step2 from './steps/s2-plan.js';
 import step3 from './steps/s3-images.js';
@@ -43,24 +44,80 @@ function renderNav() {
   if (document.activeElement !== nameInput) nameInput.value = store.state.name;
 }
 
-function renderStep() {
-  cleanup?.();
-  cleanup = null;
-  clear(main);
-  const step = STEPS[current - 1];
-  const body = h('div', { class: 'step-body' });
+// ---------- editor shell (canvas + inspector) ----------
+const editorEl = document.getElementById('editor');
+const inspectorEl = document.getElementById('inspector');
+const toolsEl = document.getElementById('stage-tools');
+const stripEl = document.getElementById('stage-strip');
+const viewEl = document.getElementById('stage-view');
+let stage = null;
+let zoomLabel = null, guidesBtn = null;
+
+function ensureStage() {
+  if (stage) return stage;
+  stage = createStage(document.getElementById('stage'), {
+    onView: (st) => {
+      if (zoomLabel) zoomLabel.textContent = `${st.zoomPercent}%`;
+      if (guidesBtn) { guidesBtn.classList.toggle('on', st.guides); guidesBtn.setAttribute('aria-pressed', st.guides); }
+    },
+  });
+  guidesBtn = h('button', { type: 'button', class: 'btn small toggle', title: 'Show or hide guides and labels on the canvas', onclick: () => stage.setGuides(!stage.guides) }, 'Guides');
+  zoomLabel = h('span', { class: 'zoom-label', title: '100% = actual size on a typical screen' }, '100%');
+  viewEl.append(
+    guidesBtn,
+    h('button', { type: 'button', class: 'btn small', 'aria-label': 'Zoom out', onclick: () => stage.zoomBy(0.8) }, '−'),
+    zoomLabel,
+    h('button', { type: 'button', class: 'btn small', 'aria-label': 'Zoom in', onclick: () => stage.zoomBy(1.25) }, '+'),
+    h('button', { type: 'button', class: 'btn small', title: 'Fit to window (double-click the canvas)', onclick: () => stage.fit() }, 'Fit'),
+  );
+  stage.setGuides(stage.guides);
+  return stage;
+}
+
+function stepNav(step) {
   const prev = current > 1 ? button('← Back', () => go(current - 1), { kind: 'ghost' }) : h('span');
   const skip = step.optional ? button('Skip', () => { store.setStep(step.id, 'skipped'); go(current + 1); }, { kind: 'ghost' }) : null;
   const next = current < STEPS.length
     ? button('Done, next →', () => { store.setStep(step.id, 'done'); go(current + 1); }, { kind: 'primary' })
     : button('Mark done', () => { store.setStep(step.id, 'done'); toast('All steps complete. Enjoy your card!'); }, { kind: 'primary' });
+  return [prev, h('div', { class: 'spacer' }), skip, next];
+}
 
+function renderStep() {
+  cleanup?.();
+  cleanup = null;
+  clear(main);
+  const step = STEPS[current - 1];
+  const isEditor = typeof step.editor === 'function';
+  main.hidden = isEditor;
+  editorEl.hidden = !isEditor;
+  document.body.classList.toggle('editing', isEditor);
+
+  if (isEditor) {
+    clear(inspectorEl); clear(toolsEl); clear(stripEl);
+    stripEl.hidden = true;
+    const body = h('div', { class: 'insp-body' });
+    inspectorEl.append(
+      h('header', { class: 'insp-head' },
+        h('p', { class: 'eyebrow' }, `Step ${step.id} of ${STEPS.length}`), h('h2', {}, step.title),
+        step.intro ? h('p', { class: 'lead' }, step.intro) : null,
+        step.details ? more(...step.details) : null),
+      body,
+      h('footer', { class: 'insp-foot' }, ...stepNav(step)),
+    );
+    const st = ensureStage();
+    cleanup = step.editor({ ...app, stage: st, inspector: body, tools: toolsEl, strip: stripEl }) || null;
+    inspectorEl.scrollTop = 0;
+    return;
+  }
+
+  const body = h('div', { class: 'step-body' });
   main.append(
     h('header', { class: 'step-head' },
       h('div', {}, h('p', { class: 'eyebrow' }, `Step ${step.id} of ${STEPS.length}`), h('h2', {}, step.title), step.intro ? h('p', { class: 'lead' }, step.intro) : null)),
     step.details ? h('div', { class: 'step-guide' }, more(...step.details)) : null,
     body,
-    h('footer', { class: 'step-foot' }, prev, h('div', { class: 'spacer' }), skip, next),
+    h('footer', { class: 'step-foot' }, ...stepNav(step)),
   );
   cleanup = step.render(body, app) || null;
   main.focus({ preventScroll: true });
