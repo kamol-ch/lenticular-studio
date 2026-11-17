@@ -59,7 +59,7 @@ export async function buildFinalFrames(onProgress = () => {}) {
 export function setFrames(frames, source) {
   framesVersion++;
   forgetWorkerFrames();
-  store.setAssets({ frames, framesSig: framesSignature(store.state), framesSource: source, output: null, outputInfo: null });
+  store.setAssets({ frames, framesSig: framesSignature(store.state), framesSource: source, builtSig: source === 'built' ? store.inputSig() : null, output: null, outputInfo: null });
 }
 
 /**

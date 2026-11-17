@@ -1,9 +1,9 @@
-import { h, row, tip, more, pic, section, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
+import { h, row, tip, more, section, numberField, selectField, button, downloadJson, pickFiles, readJsonFile, toast, stat, fmt, warnings } from '../ui.js';
 import { lpiInUse, frameGeometry, orientationForEffect, printableMm, fitsOn, mmToPx } from '../core/geometry.js';
 import { computePlan, BUDGET_RANGE, SAMPLES_RANGE } from '../core/planner.js';
 import { maxMotionMmPerFrame } from '../core/motion.js';
 import { SLICES, applySlice } from '../core/schema.js';
-import { paperLayout, drawCardOnPaper, drawRidges, createCardImage } from '../scene.js';
+import { paperLayout, drawCardOnPaper, drawRidges, createCardImage, drawLensWidget } from '../scene.js';
 import { frameSource } from '../compose.js';
 
 export function planFor(state) {
@@ -79,6 +79,14 @@ export default {
         const has = !!frameSource(s(), store.assets);
         drawCardOnPaper(ctx, v, L, s(), { image: has ? cardImage.get(v, L.card) : null, emptyText: 'Your card' });
         drawRidges(ctx, v, L, s().orientation);
+        if (v.guides) {
+          const p = planFor(s()), n = s().plan.frames, c = (n - 1) / 2, half = p.framesBetweenEyes / 2;
+          const clampI = (i) => Math.max(0, Math.min(n - 1, Math.round(i)));
+          const wants3d = s().effect !== 'animation';
+          drawLensWidget(ctx, v, wants3d
+            ? { n, active: [clampI(c - half), clampI(c + half)], tags: ['L', 'R'], reverse: false, label: `Eyes ${p.framesBetweenEyes.toFixed(1)} frames apart${p.framesBetweenEyes < 1.5 ? ' (weak 3D)' : ''}` }
+            : { n, active: [clampI(c)], label: `${n} frames · both eyes see the same one` });
+        }
       },
     });
 
@@ -189,7 +197,6 @@ export default {
       section('Card', preset, sizeFields, cardWarn,
         tip('Bleed is extra picture past the cut line.', 'If your cut drifts a little, you cut into the bleed instead of exposing white paper. 2–3 mm is typical.')),
       section('Frames & depth',
-        pic('framesEyes', 'Frames between the eyes', 'Aim for 1.5 or more for 3D'),
         framesField, framesRange,
         more(maxLine,
           'For 3D your two eyes must land at least 1.5 frames apart: frames between the eyes ≈ eye angle × frames ÷ viewing angle. That sets the 3D minimum. Animation works from 2 frames (a simple flip).',

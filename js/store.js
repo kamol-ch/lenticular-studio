@@ -5,6 +5,8 @@ import { framesSignature } from './core/geometry.js';
 
 const LS_KEY = 'lenticular-studio:state';
 
+const FRAME_INPUT_ASSETS = ['layerImages', 'animFrames', 'depthMap', 'motionMask'];
+
 export function emptyAssets() {
   return {
     pitchTest: null,      // Blob
@@ -17,6 +19,7 @@ export function emptyAssets() {
     frames: [],           // HTMLCanvasElement[] at working resolution
     framesSig: null,
     framesSource: null,   // 'built' | 'imported'
+    builtSig: null,       // inputSig() the built frames were made from
     output: null,         // Blob
     outputInfo: null,
   };
@@ -28,6 +31,7 @@ class Store extends EventTarget {
     this.state = defaultState();
     this.assets = emptyAssets();
     this.dirty = false;
+    this.assetsRev = 0;
     try {
       const saved = localStorage.getItem(LS_KEY);
       if (saved) this.state = normalizeState(saved);
@@ -52,6 +56,7 @@ class Store extends EventTarget {
   replaceAll(state, assets) {
     this.state = normalizeState(state);
     this.assets = { ...emptyAssets(), ...assets };
+    this.assetsRev++;
     this.dirty = false;
     this.persist();
     this.emit('change');
@@ -59,6 +64,7 @@ class Store extends EventTarget {
   }
 
   setAssets(patch) {
+    if (FRAME_INPUT_ASSETS.some((k) => k in patch)) this.assetsRev++;
     Object.assign(this.assets, patch);
     this.dirty = true;
     this.emit('assets');
@@ -80,11 +86,26 @@ class Store extends EventTarget {
     return () => this.removeEventListener(type, fn);
   }
 
+  /** Call after editing an asset in place (mask or depth brush strokes). */
+  touchAssets() {
+    this.assetsRev++;
+    this.dirty = true;
+    this.emit('assets');
+  }
+
+  /** Changes whenever anything that affects the frames changes. */
+  inputSig() {
+    const s = this.state;
+    return `${JSON.stringify([s.card, s.printer.ppi, s.lens.lpiNominal, s.lens.lpiMeasured, s.orientation, s.plan.frames, s.plan.samplesPerLens, s.plan.budgetLensPerFrame, s.layers, s.animation.mode, s.animation.effects, s.depth])}#${this.assetsRev}`;
+  }
+
+  /** Status of the full-resolution print frames (the canvas preview is always live). */
   framesStatus() {
     const n = this.assets.frames.length;
-    if (!n) return { ok: false, text: 'No frames yet' };
-    const stale = this.assets.framesSig !== framesSignature(this.state);
-    return { ok: !stale, stale, text: stale ? `${n} frames (out of date for current settings)` : `${n} frames ready` };
+    if (!n) return { ok: false, text: 'Print frames: built in Step 6' };
+    const stale = this.assets.framesSig !== framesSignature(this.state)
+      || (this.assets.framesSource === 'built' && this.assets.builtSig !== this.inputSig());
+    return { ok: !stale, stale, text: stale ? `${n} print frames, out of date` : `${n} print frames ready` };
   }
 }
 

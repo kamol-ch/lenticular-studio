@@ -183,4 +183,41 @@ export function drawRidges(ctx, v, L, orientation) {
   v.text(vertical ? 'ridges vertical · turn left / right' : 'ridges horizontal · tilt toward / away', cx, cy + len + 9 * v.px, { align: 'center', baseline: 'top', dy: 6, color: c, bold: true, bg: '#fff' });
 }
 
+/**
+ * Docked lens cross-section: the strips under one lens and which of them are
+ * in view. active = frame indices (one for a tilt, two for the eyes).
+ */
+export function drawLensWidget(ctx, v, { n, active = [], reverse = false, label = '', tags = [] }) {
+  const c = v.colors;
+  v.screen((x) => {
+    const w = 200, hgt = 104, left = 12, top = v.H - hgt - 12;
+    x.globalAlpha = 0.94;
+    x.fillStyle = c.panel;
+    x.strokeStyle = c.line;
+    x.beginPath(); x.roundRect(left, top, w, hgt, 8); x.fill(); x.globalAlpha = 1; x.stroke();
+    const x0 = left + 16, lw = w - 32, base = top + 62, sw = lw / n;
+    // lens
+    x.beginPath(); x.moveTo(x0, base); x.quadraticCurveTo(x0 + lw / 2, base - 62, x0 + lw, base); x.closePath();
+    x.fillStyle = 'rgba(42,111,127,.14)'; x.fill(); x.strokeStyle = c.primary; x.lineWidth = 1.5; x.stroke();
+    // strips in printed order
+    x.font = '10px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    for (let p = 0; p < n; p++) {
+      const k = reverse ? n - 1 - p : p, on = active.includes(k);
+      x.fillStyle = on ? c.primary : c.stage; x.fillRect(x0 + p * sw + 0.5, base, sw - 1, 14);
+      if (sw > 11) { x.fillStyle = on ? '#fff' : c.muted; x.fillText(String(k + 1), x0 + (p + 0.5) * sw, base + 7.5); }
+    }
+    // rays to the viewer
+    x.setLineDash([3, 3]); x.strokeStyle = c.warn; x.lineWidth = 1.5;
+    active.forEach((k, i) => {
+      const p = reverse ? n - 1 - k : k, sx = x0 + (p + 0.5) * sw, apex = x0 + lw / 2;
+      const ex = apex + (apex - sx) * 0.9, ey = top + 12;
+      x.beginPath(); x.moveTo(sx, base); x.lineTo(ex, ey); x.stroke();
+      if (tags[i]) { x.setLineDash([]); x.fillStyle = c.text; x.font = '600 10px system-ui, sans-serif'; x.fillText(tags[i], ex + (i ? 9 : -9), ey + 2); x.setLineDash([3, 3]); }
+    });
+    x.setLineDash([]);
+    x.fillStyle = c.muted; x.font = '11px system-ui, sans-serif'; x.textAlign = 'center';
+    x.fillText(label, left + w / 2, top + hgt - 12);
+  });
+}
+
 export const fmtMm = (n) => (Math.round(n * 10) / 10).toString();

@@ -1,36 +1,13 @@
-import { h, hint, pic, section, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
+import { h, hint, section, numberField, slider, checkbox, button, downloadBlob, pickFiles, toast, clear, progress, stat, fmt, warnings } from '../ui.js';
 import { bleedBoxPx, frameGeometry, lpiInUse, mmToPx, pxToMm } from '../core/geometry.js';
-import { visibleFrameAtAngle, planPage } from '../core/interlace.js';
+import { planPage } from '../core/interlace.js';
 import { makeCanvas, ctx2d } from '../canvas.js';
 import { frameSource } from '../compose.js';
 import { buildFinalFrames, interlaceCurrentFrames, previewCrop } from '../pipeline.js';
-import { importFrames } from '../project-io.js';
-import { drawSheet } from '../scene.js';
+import { importFrames, exportFrames } from '../project-io.js';
+import { drawSheet, drawLensWidget } from '../scene.js';
+import { mountTiltStrip } from '../tiltstrip.js';
 import { planFor } from './s2-plan.js';
-
-const SVGNS = 'http://www.w3.org/2000/svg';
-const svg = (tag, attrs = {}) => { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
-
-function lensDiagram(n, visible, reverse, angleDeg, viewDeg) {
-  const W = 300, H = 150, x0 = 30, lw = 240, base = 122;
-  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'lens-diagram', role: 'img', 'aria-label': `Lens cross-section: strip ${visible + 1} of ${n} visible` });
-  for (let p = 0; p < n; p++) {
-    const k = reverse ? n - 1 - p : p;
-    const on = k === visible;
-    root.append(svg('rect', { x: x0 + (p * lw) / n, y: base, width: lw / n - 1, height: 18, fill: on ? 'var(--primary)' : 'var(--panel-2)', stroke: 'var(--line)' }));
-    const t = svg('text', { x: x0 + ((p + 0.5) * lw) / n, y: base + 13, 'text-anchor': 'middle', 'font-size': 10, fill: on ? 'var(--primary-text)' : 'var(--muted)' });
-    t.textContent = k + 1;
-    root.append(t);
-  }
-  root.append(svg('path', { d: `M${x0} ${base} Q ${x0 + lw / 2} ${base - 110} ${x0 + lw} ${base} Z`, fill: 'color-mix(in srgb, var(--primary) 12%, transparent)', stroke: 'var(--primary)', 'stroke-width': 1.5 }));
-  const cx = x0 + lw / 2, cy = base - 55;
-  const a = (angleDeg * Math.PI) / 180;
-  root.append(svg('line', { x1: cx, y1: cy, x2: cx + Math.sin(a) * 60, y2: cy - Math.cos(a) * 60, stroke: 'var(--warn)', 'stroke-width': 2, 'stroke-dasharray': '4 3' }));
-  const lbl = svg('text', { x: 4, y: 12, 'font-size': 11, fill: 'var(--muted)' });
-  lbl.textContent = `tilt ${angleDeg.toFixed(1)}° of ±${(viewDeg / 2).toFixed(1)}°`;
-  root.append(lbl);
-  return root;
-}
 
 export default {
   id: 6,
@@ -48,7 +25,6 @@ export default {
     const prog = progress();
     const mmPerPx = () => 25.4 / s().printer.ppi;
     const viewDeg = () => planFor(s()).viewingAngleDeg;
-    let tilt = 0;
 
     // ---------- layout of the printed page (mm) ----------
     let P = null;
@@ -102,10 +78,13 @@ export default {
       }, 140);
     };
 
-    const currentFrame = () => {
-      const fr = store.assets.frames;
-      return fr[visibleFrameAtAngle(tilt, viewDeg(), fr.length || 1)] || null;
-    };
+    const ts = mountTiltStrip(strip, {
+      frames: () => store.assets.frames,
+      viewDeg,
+      aspect: () => { const g = frameGeometry(s()); return g.outW / g.outH; },
+      onChange: () => stage.invalidate(),
+    });
+    const currentFrame = () => store.assets.frames[ts.index()] || null;
 
     stage.setScene({
       bounds: () => P.page,
@@ -161,50 +140,21 @@ export default {
             v.text('crop mark', r.x + P.bleed, r.y - P.margin * 0.4, { dx: 5, dy: 4, baseline: 'top', color: c.text, bg: '#fff' });
           }
           v.text('cut line', r.x + P.bleed, r.y + P.bleed, { dx: 6, dy: 14, color: c.trim, bold: true, bg: '#fff' });
+          const n = store.assets.frames.length || st.plan.frames;
+          drawLensWidget(ctx, v, { n, active: [ts.index()], reverse: st.interlace.reverse, label: `Frame ${ts.index() + 1} of ${n} · ${vertical ? 'turn left / right' : 'tilt toward / away'}` });
         }
       },
     });
 
-    // ---------- strip: frames + tilt ----------
-    const thumbs = h('div', { class: 'thumbs' });
-    const tiltSlider = slider({
-      label: 'Tilt', value: 0, min: -30, max: 30, step: 0.25, format: (v) => `${v.toFixed(1)}°`,
-      onInput: (v) => { tilt = v; refreshTilt(); },
-    });
-    const diagram = h('div');
-    const tiltLabel = h('p', { class: 'hint' });
-    const refreshTilt = () => {
-      const n = store.assets.frames.length || s().plan.frames;
-      const k = visibleFrameAtAngle(tilt, viewDeg(), n);
-      [...thumbs.children].forEach((t, i) => t.classList.toggle('active', i === k));
-      diagram.replaceChildren(lensDiagram(n, k, s().interlace.reverse, tilt, viewDeg()));
-      tiltLabel.textContent = `Frame ${k + 1} of ${n}. ${s().orientation === 'vertical' ? 'Turn the card left / right.' : 'Tilt the card toward / away.'}`;
-      stage.invalidate();
-    };
     const framesNote = h('p');
     const refreshFrames = () => {
       const fs = store.framesStatus();
-      const g = frameGeometry(s());
-      clear(thumbs);
-      store.assets.frames.forEach((f, i) => {
-        const t = makeCanvas(Math.round((54 * g.outW) / g.outH), 54);
-        ctx2d(t).drawImage(f, 0, 0, t.width, t.height);
-        t.title = `Frame ${i + 1}`;
-        t.addEventListener('click', () => {
-          const n = store.assets.frames.length;
-          tilt = ((i + 0.5) / n - 0.5) * viewDeg();
-          tiltSlider.set(+tilt.toFixed(2));
-          refreshTilt();
-        });
-        thumbs.append(t);
-      });
-      strip.hidden = !store.assets.frames.length;
+      ts.refresh();
       framesNote.className = fs.ok ? 'ok-note' : 'hint';
       framesNote.textContent = `${fs.text}${store.assets.framesSource ? ` · ${store.assets.framesSource}` : ''}`;
       dropCrop();
-      refreshTilt();
+      stage.invalidate();
     };
-    strip.append(thumbs, tiltSlider);
 
     // ---------- inspector ----------
     const stats = h('div', { class: 'stats' });
@@ -243,7 +193,14 @@ export default {
     const invalidate = () => {
       if (store.assets.output) { store.setAssets({ output: null, outputInfo: null }); result.replaceChildren(h('p', { class: 'hint' }, 'Settings changed: generate again.')); }
       refreshStats();
-      refreshTilt();
+      stage.invalidate();
+    };
+
+    /** Print frames are missing or older than the project, and we can rebuild them. */
+    const needsBuild = () => {
+      const fs = store.framesStatus();
+      if (!frameSource(s(), store.assets)) return false;
+      return !store.assets.frames.length || (fs.stale && store.assets.framesSource !== 'imported') || (fs.stale && !store.assets.frames.length);
     };
 
     const build = async () => {
@@ -281,15 +238,19 @@ export default {
     inspector.append(
       section('Frames', framesNote,
         h('div', { class: 'btn-row' },
-          button('Build from Steps 3–5', build, { kind: 'small' }),
+          button('Rebuild', build, { kind: 'small', title: 'Rebuild the print frames from Steps 3–5' }),
           button('Import frames…', async () => {
             const files = await pickFiles({ accept: '.zip,image/*', multiple: true });
             if (!files.length) return;
             const n = await importFrames(files);
             invalidate();
             toast(`Imported ${n} frames (sorted by file name).`);
+          }, { kind: 'small ghost' }),
+          button('Export frames.zip', async () => {
+            if (!store.assets.frames.length) throw new Error('No frames yet.');
+            downloadBlob(await exportFrames(), 'frames.zip');
           }, { kind: 'small ghost' })),
-        hint('Own frames? Name them frame_01.png, frame_02.png, …')),
+        hint('Print frames are built automatically from Steps 3–5. Own frames? Import images named frame_01.png, frame_02.png, …')),
       section('Options',
         checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'Toggle if 3D looks inside-out.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); } }),
         checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks + lens alignment strip.', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
@@ -299,8 +260,7 @@ export default {
       section('Generate',
         h('div', { class: 'btn-row' }, button('Generate interlaced.png', async () => {
           if (!store.assets.frames.length) throw new Error('No frames yet: build or import them first.');
-          if (store.framesStatus().stale && frameSource(s(), store.assets) && store.assets.framesSource === 'built'
-            && confirm('Frames are out of date for the current settings. Rebuild them first?')) await build();
+          if (needsBuild()) await build();
           const t0 = performance.now();
           const r = await interlaceCurrentFrames((p) => prog.set(p, `Interlacing & encoding ${Math.round(p * 100)}%`));
           prog.done();
@@ -311,18 +271,16 @@ export default {
         }, { kind: 'primary' })),
         prog, result),
       section('Output', stats, statsWarn),
-      section('Tilt', diagram, tiltLabel,
-        pic('interlace', 'How it works', 'Each lens shows one strip at a time'),
-        { closed: true }),
     );
 
     refreshStats();
     refreshFrames();
     showResult();
+    if (needsBuild()) build().catch((e) => toast(e.message, 'error'));
     let lastFrames = store.assets.frames;
     const offs = [
       store.on('assets', () => { if (store.assets.frames !== lastFrames) { lastFrames = store.assets.frames; refreshFrames(); } }),
     ];
-    return () => { offs.forEach((f) => f()); clearTimeout(cropTimer); cropToken++; };
+    return () => { offs.forEach((f) => f()); ts.destroy(); clearTimeout(cropTimer); cropToken++; };
   },
 };

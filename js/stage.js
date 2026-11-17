@@ -69,6 +69,8 @@ export function createStage(host, { onView } = {}) {
     const v = {
       k, px: 1 / k, dpr, guides, colors: c, W, H,
       visible: { x: tl.x, y: tl.y, w: br.x - tl.x, h: br.y - tl.y },
+      /** Run fn with the context in CSS-pixel screen space (for docked widgets). */
+      screen(fn) { ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); fn(ctx); ctx.restore(); },
       /** Crisp label at a world position. opts: align, baseline, color, bold, size, bg, dx, dy (CSS px). */
       text(str, wx, wy, o = {}) {
         ctx.save();
