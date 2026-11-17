@@ -18,6 +18,10 @@ There is no build step and no `npm install`. The browser loads two libraries fro
 
 Use a current Chrome, Edge, Firefox or Safari (16.4 or later).
 
+## Editor layout
+
+Steps 2, 3 and 6 use a three-pane editor: the step list, a canvas in the middle and an inspector on the right. The canvas is drawn in millimetres, so the paper, card, bleed and marks are shown at scale. Scroll to zoom, drag the background to pan, double-click to fit, and use **Guides** to hide the overlays. The other steps still use the page layout and will move over in later phases.
+
 ## Workflow
 
 | Step | What it does | Import / export |
@@ -42,7 +46,9 @@ Use a current Chrome, Edge, Firefox or Safari (16.4 or later).
 
 ```
 index.html, css/app.css
-js/main.js             wizard shell, sidebar, project open/save
+js/main.js             wizard shell, sidebar, editor shell, project open/save
+js/stage.js            zoomable canvas (mm units, pan/zoom, guides)
+js/scene.js            card-on-paper layout and overlays for the canvas
 js/store.js            state (JSON, saved to localStorage) + in-memory assets
 js/core/               pure, DOM-free logic (unit-tested in Node)
   geometry.js          mm/px, pitch, bleed box, working frame size, paper tiling, test-sheet size
