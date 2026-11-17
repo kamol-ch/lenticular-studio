@@ -166,6 +166,9 @@ export function createStage(host, { onView } = {}) {
     setScene(s) { scene = s; fitted = true; resize(); },
     invalidate, fit,
     zoomBy: (f) => zoomAt(f),
+    /** Centre the view on a world point at a given scale (CSS px per mm). */
+    focus(x, y, scale) { k = scale; ox = W / 2 - x * k; oy = H / 2 - y * k; fitted = false; changed(); },
+    get dpr() { return dpr; },
     get scale() { return k; },
     get guides() { return guides; },
     setGuides(on) { guides = !!on; try { localStorage.setItem(LS_GUIDES, on ? '1' : '0'); } catch { /* ignore */ } changed(); },
