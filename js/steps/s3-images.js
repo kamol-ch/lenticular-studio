@@ -1,6 +1,9 @@
 import { h, row, hint, tip, section, numberField, textField, slider, checkbox, button, dropZone, downloadBlob, pickFiles, toast, clear } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
-import { paperLayout, drawCardOnPaper, createCardImage, inflate, inRect } from '../scene.js';
+import { paperLayout, drawCardOnPaper, createCardImage, drawLensWidget, inflate, inRect } from '../scene.js';
+import { createLivePreview } from '../preview.js';
+import { mountTiltStrip } from '../tiltstrip.js';
+import { planFor } from './s2-plan.js';
 import { exportSource, importSource } from '../project-io.js';
 
 const uid = () => Math.random().toString(36).slice(2, 8);
@@ -46,11 +49,19 @@ export default {
     'Layers stack bottom to top: the last one in the list is the back of the card. Use PNG with transparency for cut-outs such as a flower in front of a sky.',
     'Cover the red bleed band: anything inside the red dashes is the finished card. For 3D, paint layers a little wider than needed, because 3D shifts reveal their edges.',
   ],
-  editor({ store, stage, inspector, tools }) {
+  editor({ store, stage, inspector, tools, strip }) {
     const s = () => store.state;
     let selected = s().layers.at(-1)?.id || null;
     let L = paperLayout(s());
     const cardImage = createCardImage(store);
+    // Preview of motion / depth while arranging: tilting shows the result, touching a layer returns to editing.
+    const preview = createLivePreview(store);
+    const hasEffect = () => s().depth.mode !== 'none' || s().animation.mode !== 'none';
+    const ts = mountTiltStrip(strip, {
+      frames: () => (hasEffect() ? preview.frames() : []),
+      viewDeg: () => planFor(s()).viewingAngleDeg,
+      onChange: () => stage.invalidate(),
+    });
     const thumbUrls = new Map();
     const thumb = (id) => {
       if (!thumbUrls.has(id) && store.assets.layerFiles[id]) thumbUrls.set(id, URL.createObjectURL(store.assets.layerFiles[id]));
@@ -83,6 +94,12 @@ export default {
       bounds: () => inflate(L.card, 12),
       draw(ctx, v) {
         const has = s().layers.some((l) => store.assets.layerImages[l.id]);
+        if (ts.active) {
+          const fr = preview.frames();
+          drawCardOnPaper(ctx, v, L, s(), { image: fr[ts.index()] || null, dimPaper: true });
+          if (v.guides) drawLensWidget(ctx, v, { n: fr.length, active: [ts.index()], label: `Preview · frame ${ts.index() + 1} of ${fr.length}` });
+          return;
+        }
         drawCardOnPaper(ctx, v, L, s(), { image: has ? cardImage.get(v, L.card) : null, dimPaper: true, emptyText: 'Drop a scan here, or use “Add images”' });
         const l = layerById(selected);
         const b = l && boxOf(l);
@@ -106,6 +123,7 @@ export default {
         return l ? (l.id === selected ? 'move' : 'pointer') : 'grab';
       },
       pointerDown(pt) {
+        if (ts.active) ts.reset();
         if (handleAt(pt) >= 0) {
           const l = layerById(selected), b = boxOf(l);
           const d0 = Math.hypot(pt.x - b.cx, pt.y - b.cy) || 1, s0 = l.scale;
@@ -228,10 +246,13 @@ export default {
     );
     renderList(); renderProps();
 
-    const refresh = () => { L = paperLayout(s()); redraw(); };
+    let stripTimer = 0;
+    const refresh = () => { L = paperLayout(s()); redraw(); clearTimeout(stripTimer); stripTimer = setTimeout(() => ts.refresh(), 300); };
+    ts.refresh();
     const offs = [store.on('change', refresh), store.on('assets', refresh)];
     return () => {
       offs.forEach((f) => f());
+      ts.destroy(); clearTimeout(stripTimer);
       stage.canvas.removeEventListener('dragover', over);
       stage.canvas.removeEventListener('drop', drop);
       thumbUrls.forEach((u) => URL.revokeObjectURL(u));

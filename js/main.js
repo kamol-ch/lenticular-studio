@@ -72,7 +72,20 @@ function ensureStage() {
     h('button', { type: 'button', class: 'btn small', title: 'Fit to window (double-click the canvas)', onclick: () => stage.fit() }, 'Fit'),
   );
   stage.setGuides(stage.guides);
+  showCoach();
   return stage;
+}
+
+/** One-time hint about moving around the canvas. */
+function showCoach() {
+  const KEY = 'lenticular-studio:coach';
+  try { if (localStorage.getItem(KEY)) return; } catch { return; }
+  const host = document.getElementById('stage');
+  const box = h('div', { class: 'coach', role: 'note' },
+    h('strong', {}, 'Moving around'),
+    h('span', {}, 'Scroll to zoom · drag the background to pan · double-click to fit · Guides hides the labels'),
+    h('button', { type: 'button', class: 'btn small primary', onclick: () => { box.remove(); try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ } } }, 'Got it'));
+  host.append(box);
 }
 
 function stepNav(step) {
@@ -109,6 +122,8 @@ function renderStep() {
     const st = ensureStage();
     cleanup = step.editor({ ...app, stage: st, inspector: body, tools: toolsEl, strip: stripEl }) || null;
     inspectorEl.scrollTop = 0;
+    // The strip may have appeared or gone without the observer noticing a size change.
+    requestAnimationFrame(() => st.resize());
     return;
   }
 

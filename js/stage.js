@@ -166,7 +166,7 @@ export function createStage(host, { onView } = {}) {
   const api = {
     canvas,
     setScene(s) { scene = s; fitted = true; resize(); },
-    invalidate, fit,
+    invalidate, fit, resize,
     zoomBy: (f) => zoomAt(f),
     /** Centre the view on a world point at a given scale (CSS px per mm). */
     focus(x, y, scale) { k = scale; ox = W / 2 - x * k; oy = H / 2 - y * k; fitted = false; changed(); },

@@ -71,6 +71,54 @@ export default {
       onChange: () => { if (ts.active && view !== 'result') setView('result'); stage.invalidate(); },
     });
 
+    // ---------- side view of the layer depths (drag the dots) ----------
+    let dv = null; // geometry of the last drawn panel, in world units
+    const snap = (d) => Math.max(-1, Math.min(1, Math.round(d / 0.05) * 0.05));
+    const drawDepthView = (ctx, v) => {
+      const layers = [...s().layers].reverse().filter((l) => l.visible);
+      if (!layers.length) { dv = null; return; }
+      const px = v.px, c = v.colors;
+      const W = 250 * px, rowH = 22 * px, H = (44 + layers.length * 22) * px;
+      const x0 = v.visible.x + v.visible.w - W - 12 * px, y0 = v.visible.y + 12 * px;
+      const tx0 = x0 + 92 * px, tw = W - 92 * px - 16 * px, rowsY0 = y0 + 34 * px;
+      const xOf = (d) => tx0 + ((d + 1) / 2) * tw;
+      dv = { x0, y0, W, H, tx0, tw, rowH, rowsY0, layers, px, xOf };
+      ctx.save();
+      ctx.globalAlpha = 0.95; ctx.fillStyle = c.panel;
+      ctx.beginPath(); ctx.roundRect(x0, y0, W, H, 8 * px); ctx.fill();
+      ctx.globalAlpha = 1; ctx.lineWidth = px; ctx.strokeStyle = c.line; ctx.stroke();
+      layers.forEach((l, i) => {
+        const y = rowsY0 + (i + 0.5) * rowH;
+        ctx.beginPath(); ctx.moveTo(tx0, y); ctx.lineTo(tx0 + tw, y); ctx.strokeStyle = c.line; ctx.lineWidth = 2 * px; ctx.stroke();
+        ctx.beginPath(); ctx.arc(xOf(l.depth), y, 6.5 * px, 0, Math.PI * 2);
+        ctx.fillStyle = c.primary; ctx.fill(); ctx.lineWidth = 2 * px; ctx.strokeStyle = '#fff'; ctx.stroke();
+      });
+      const kx = xOf(s().depth.keyPlane);
+      ctx.beginPath(); ctx.setLineDash([4 * px, 3 * px]); ctx.moveTo(kx, y0 + 24 * px); ctx.lineTo(kx, y0 + H - 6 * px);
+      ctx.strokeStyle = c.warn; ctx.lineWidth = 1.5 * px; ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(kx - 6 * px, y0 + 20 * px); ctx.lineTo(kx + 6 * px, y0 + 20 * px); ctx.lineTo(kx, y0 + 29 * px); ctx.closePath();
+      ctx.fillStyle = c.warn; ctx.fill();
+      ctx.restore();
+      v.text('far', tx0, y0, { dy: 15, size: 10 });
+      v.text('near', tx0 + tw, y0, { dy: 15, size: 10, align: 'right' });
+      v.text('key', kx, y0, { dy: 15, size: 10, align: 'center', color: c.warn, bold: true });
+      layers.forEach((l, i) => v.text(l.name.length > 11 ? `${l.name.slice(0, 10)}…` : l.name, x0 + 10 * px, rowsY0 + (i + 0.5) * rowH, { baseline: 'middle', color: c.text }));
+    };
+    const inDepthView = (pt) => dv && pt.x >= dv.x0 && pt.x <= dv.x0 + dv.W && pt.y >= dv.y0 && pt.y <= dv.y0 + dv.H;
+    const depthViewDown = (pt) => {
+      if (!inDepthView(pt)) return null;
+      const dAt = (p) => snap(((p.x - dv.tx0) / dv.tw) * 2 - 1);
+      const done = () => { store.update(() => {}); renderLayers(); keyPlane.set(s().depth.keyPlane); };
+      if (pt.y < dv.rowsY0) {
+        if (Math.abs(pt.x - dv.xOf(s().depth.keyPlane)) > 12 * dv.px) return {};
+        return { move: (p) => { s().depth.keyPlane = dAt(p); }, up: done };
+      }
+      const l = dv.layers[Math.floor((pt.y - dv.rowsY0) / dv.rowH)];
+      if (!l) return {};
+      l.depth = dAt(pt);
+      return { move: (p) => { l.depth = dAt(p); }, up: done };
+    };
+
     stage.setScene({
       bounds: () => inflate(L.card, 12),
       draw(ctx, v) {
@@ -97,11 +145,14 @@ export default {
         if (v.guides) {
           if (view === 'depth' || view === 'overlay') v.text('white = near · black = far', L.card.x + L.card.w / 2, L.card.y + L.card.h, { align: 'center', dy: 16, bold: true, color: v.colors.text });
           if (view === 'anaglyph') v.text('view with red / cyan glasses', L.card.x + L.card.w / 2, L.card.y + L.card.h, { align: 'center', dy: 16, bold: true, color: v.colors.text });
+          if (s().depth.mode === 'layers') drawDepthView(ctx, v); else dv = null;
           if (fr.length > 1 && s().depth.mode !== 'none') drawLensWidget(ctx, v, { n: fr.length, active: [ts.index()], reverse: false, label: `Frame ${ts.index() + 1} of ${fr.length}` });
         }
       },
-      hover(pt) { hoverPt = pt; if (canBrush()) { stage.invalidate(); return inRect(pt, L.card) ? 'crosshair' : 'grab'; } return 'grab'; },
+      hover(pt) { hoverPt = pt; if (inDepthView(pt)) return 'ew-resize'; if (canBrush()) { stage.invalidate(); return inRect(pt, L.card) ? 'crosshair' : 'grab'; } return 'grab'; },
       pointerDown(pt) {
+        const hit = stage.guides && s().depth.mode === 'layers' ? depthViewDown(pt) : null;
+        if (hit) return hit;
         if (!canBrush() || !inRect(pt, L.card)) return null;
         const m = store.assets.depthMap;
         const dab = (p) => {
@@ -200,7 +251,7 @@ export default {
         store.update((st) => { const n = st.layers.length; st.layers.forEach((l, i) => { l.depth = n === 1 ? 0 : +(-1 + (2 * i) / (n - 1)).toFixed(2); }); });
         renderLayers();
       }, { kind: 'small' })),
-      tip('Back layers far (−), front layers near (+).', 'Each frame shifts a layer by (depth − key plane) × strength × budget pixels, so layers at the key plane stay still.'));
+      tip('Drag the dots on the canvas, or use the sliders.', 'Back layers far (−), front layers near (+). The orange marker is the key plane.', 'Each frame shifts a layer by (depth − key plane) × strength × budget pixels, so layers at the key plane stay still.'));
     const mapSec = section('Depth map',
       h('div', { class: 'btn-row' },
         button('Estimate with AI', async () => {

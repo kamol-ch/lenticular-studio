@@ -298,3 +298,6 @@ body.editing { overflow: hidden; }
 .stage-tools .slider input[type=range] { width: 84px; }
 .stage-tools .check { margin: 0; }
 @media (max-width: 1200px) { .stage-bar { flex-wrap: wrap; } }
+
+.coach { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: flex; align-items: center; gap: 12px; max-width: min(430px, calc(100% - 240px)); padding: 8px 10px 8px 14px; border-radius: 10px; background: var(--text); color: var(--bg); font-size: .85rem; box-shadow: var(--shadow); }
+.coach span { opacity: .9; }

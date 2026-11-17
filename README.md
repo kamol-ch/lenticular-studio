@@ -23,7 +23,8 @@ Use a current Chrome, Edge, Firefox or Safari (16.4 or later).
 Every step uses a three-pane editor: the step list, a canvas in the middle and an inspector on the right.
 
 - **Canvas:** drawn in millimetres, so paper, card, bleed, marks and test sheets are shown at scale. Scroll to zoom, drag the background to pan, double-click to fit. **Guides** hides the overlays and labels.
-- **Live preview:** Steps 4 and 5 show what the lens will show as you edit. The strip under the canvas has frame thumbnails, a tilt slider and Play. Full-resolution print frames are built automatically in Step 6.
+- **Live preview:** Steps 3 to 5 show what the lens will show as you edit. The strip under the canvas has frame thumbnails, a tilt slider and Play. Full-resolution print frames are built automatically in Step 6.
+- **Depth side-view:** in Step 5 (layers mode) a panel on the canvas shows each layer from far to near; drag a dot to change its depth, or the orange marker to move the key plane.
 - **Lens widget:** a docked lens cross-section shows which strips the eyes (Step 2) or the current tilt (Steps 4 to 6) see.
 - **Undo / redo:** Ctrl+Z and Ctrl+Shift+Z, including depth and mask brush strokes.
 - **Autosave:** images, depth map, mask and clip frames are kept in the browser (IndexedDB) and restored on reload. **Save project** still writes a portable `project.zip`.
