@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { frameIndexAt, buildIndexMap, createInterlacer, planPage, visibleFrameAtAngle } from '../js/core/interlace.js';
+import { scaleMarks } from '../js/core/scale.js';
 import { bleedBoxPx, workingFrameSize, pitchPx, tileLayout } from '../js/core/geometry.js';
 
 test('pitch 9.6 px, 8 frames: index per column matches hand-computed values', () => {
@@ -116,4 +117,30 @@ test('tilt simulator walks through frames across one viewing zone', () => {
   for (let a = -15.9; a < 16; a += 0.5) seen.add(visibleFrameAtAngle(a, 32, 8));
   assert.equal(seen.size, 8);
   assert.equal(visibleFrameAtAngle(0, 32, 8), 4);
+});
+
+test('scale marks: border on the sheet edge, 50 mm bar outer length exact', () => {
+  const W = 2835, H = 4252; // 100 × 150 mm at 720 ppi
+  const m = scaleMarks({ pageW: W, pageH: H, ppi: 720, barX: 300, barY: 4000 });
+  assert.equal(m.barPx, Math.round((50 / 25.4) * 720)); // 1417 px = 50.0 mm
+  const black = m.rects.filter((r) => r.v === 0);
+  const xs = black.flatMap((r) => [r.x, r.x + r.w]), ys = black.flatMap((r) => [r.y, r.y + r.h]);
+  assert.equal(Math.min(...xs), 0); assert.equal(Math.max(...xs), W);
+  assert.equal(Math.min(...ys), 0); assert.equal(Math.max(...ys), H);
+  // the two end ticks span exactly the bar length
+  const ticks = black.filter((r) => r.h > r.w && r.h < H);
+  assert.equal(Math.max(...ticks.map((r) => r.x + r.w)) - Math.min(...ticks.map((r) => r.x)), m.barPx);
+});
+
+test('interlacer overlay paints rectangles after the image', () => {
+  const frames = solidFrames(2, 10, 10);
+  const il = createInterlacer({ frames, outW: 20, outH: 10, pitch: 4, overlay: [{ x: 2, y: 3, w: 5, h: 2, v: 0 }] });
+  const row = new Uint8Array(20 * 3);
+  il.renderRow(4, row);
+  for (let x = 0; x < 20; x++) if (x >= 2 && x < 7) assert.equal(row[x * 3], 0);
+  // rows outside the rectangle are identical to an interlace without overlay
+  const plain = createInterlacer({ frames, outW: 20, outH: 10, pitch: 4 });
+  const a = new Uint8Array(20 * 3), b = new Uint8Array(20 * 3);
+  il.renderRow(6, a); plain.renderRow(6, b);
+  assert.deepEqual(a, b);
 });
