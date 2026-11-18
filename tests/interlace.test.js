@@ -144,3 +144,88 @@ test('interlacer overlay paints rectangles after the image', () => {
   il.renderRow(6, a); plain.renderRow(6, b);
   assert.deepEqual(a, b);
 });
+
+function bwFrames(w, h) {
+  const mk = (v) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4).fill(v).map((x, i) => (i % 4 === 3 ? 255 : x)) });
+  return [mk(255), mk(0)]; // frame 0 white, frame 1 black
+}
+
+/** White per lens, averaged over windows of 5 lenses (48 px at a 9.6 px pitch, a whole number of pixels). */
+function whitePerLens(row, width) {
+  const out = [];
+  for (let x0 = 0; x0 + 48 <= width; x0 += 48) {
+    let s = 0;
+    for (let x = x0; x < x0 + 48; x++) s += row[x * 3] / 255;
+    out.push(s / 5);
+  }
+  return out;
+}
+
+test('hard edges at 9.6 px: two-frame strips round to 4 or 5 px', () => {
+  const il = createInterlacer({ frames: bwFrames(4, 4), outW: 960, outH: 4, pitch: 9.6 });
+  const row = new Uint8Array(960 * 3);
+  il.renderRow(1, row);
+  const runs = [];
+  let run = 1;
+  for (let x = 1; x < 960; x++) { if (row[x * 3] === row[(x - 1) * 3]) run++; else { runs.push(run); run = 1; } }
+  assert.deepEqual([...new Set(runs.slice(1))].sort(), [4, 5]);
+});
+
+test('smooth edges: every strip carries exactly half a lens of white', () => {
+  const pitch = 9.6;
+  const il = createInterlacer({ frames: bwFrames(4, 4), outW: 960, outH: 4, pitch, smoothEdges: true });
+  const row = new Uint8Array(960 * 3);
+  il.renderRow(1, row);
+  // Integrate white over exact strip spans: pixel coverage must add up to 4.8 px per strip.
+  let total = 0;
+  for (let x = 0; x < 960; x++) total += row[x * 3] / 255;
+  assert.ok(Math.abs(total - 480) < 1, `total white ${total}`);
+  // Edge pixels are grey only where a boundary crosses them.
+  const greys = [];
+  for (let x = 0; x < 960; x++) if (row[x * 3] !== 0 && row[x * 3] !== 255) greys.push(x);
+  for (const x of greys) {
+    const b0 = Math.floor(x / 4.8), b1 = Math.floor((x + 1) / 4.8 - 1e-9);
+    assert.ok(b1 > b0, `pixel ${x} is grey but no boundary crosses it`);
+  }
+});
+
+test('ink-spread compensation widens light strips by 2 × spread, evenly', () => {
+  const pitch = 9.6, spread = 1;
+  const il = createInterlacer({ frames: bwFrames(4, 4), outW: 1920, outH: 4, pitch, spreadPx: spread });
+  const row = new Uint8Array(1920 * 3);
+  il.renderRow(1, row);
+  let total = 0;
+  for (let x = 0; x < 1920; x++) total += row[x * 3] / 255;
+  const lenses = 1920 / pitch;
+  assert.ok(Math.abs(total / lenses - (4.8 + 2 * spread)) < 0.02, `white per lens ${total / lenses}`);
+  const per = whitePerLens(row, 1920);
+  for (const w of per) assert.ok(Math.abs(w - 6.8) < 0.02, `lens white ${w}`);
+});
+
+test('ink-spread compensation is capped below half a strip', () => {
+  const il = createInterlacer({ frames: bwFrames(4, 4), outW: 960, outH: 4, pitch: 9.6, spreadPx: 10 });
+  const row = new Uint8Array(960 * 3);
+  il.renderRow(1, row);
+  let black = 0;
+  for (let x = 0; x < 960; x++) black += 1 - row[x * 3] / 255;
+  // cap = 0.45 × 4.8 = 2.16 px per side → black strips 4.8 − 4.32 = 0.48 px
+  assert.ok(Math.abs(black / 100 - 0.48) < 0.02, `black per lens ${black / 100}`);
+});
+
+test('spread rows apply different compensation to bands of the page', () => {
+  const il = createInterlacer({ frames: bwFrames(4, 4), outW: 960, outH: 4, pitch: 9.6, spreadRows: [{ y0: 2, y1: 4, px: 1 }] });
+  const row = new Uint8Array(960 * 3);
+  const white = (y) => { il.renderRow(y, row); let s = 0; for (let x = 0; x < 960; x++) s += row[x * 3] / 255; return s / 100; };
+  assert.ok(Math.abs(white(0) - 4.8) < 0.02);
+  assert.ok(Math.abs(white(3) - 6.8) < 0.02);
+});
+
+test('smooth edges with horizontal ridges and many frames keep frame order', () => {
+  const frames = solidFrames(8, 4, 4);
+  const il = createInterlacer({ frames, outW: 4, outH: 96, pitch: 9.6, orientation: 'horizontal', smoothEdges: true });
+  const row = new Uint8Array(4 * 3);
+  il.renderRow(0, row); // y 0..1 is frame 0 only (strip 1.2 px wide)
+  assert.equal(row[0], 0);
+  il.renderRow(1, row); // covers 0.2 of frame 0 and 0.8 of frame 1 (values 0 and 10)
+  assert.equal(row[0], 8);
+});

@@ -93,6 +93,23 @@ export const ART = {
     <rect x="96" y="18" width="46" height="64" rx="3" fill="#222"/>
     <text x="119" y="62" text-anchor="middle" font-size="36" font-weight="800" fill="#fff">B</text>`),
 
+  /** Spread test: bands whose white strips get wider; the even one is picked. */
+  spread: () => {
+    let bands = '';
+    const whites = [1.2, 2.4, 3.6, 4.6];
+    whites.forEach((ww, b) => {
+      const y = 12 + b * 20;
+      bands += `<rect x="40" y="${y}" width="84" height="15" fill="#222"/>`;
+      for (let i = 0; i < 12; i++) {
+        const uneven = b < 2 && i % 3 === 2 ? 0.35 : 1; // under-compensated: some white strips close up
+        bands += `<rect x="${41 + i * 7}" y="${y}" width="${ww * uneven}" height="15" fill="#fff"/>`;
+      }
+      bands += `<text class="tm" x="36" y="${y + 11}" text-anchor="end">${(b * 0.02).toFixed(2)}</text>`;
+    });
+    return svg(`<rect class="pa" x="4" y="6" width="126" height="88" rx="2"/>${bands}
+      <circle class="pr" cx="142" cy="59" r="10"/><path d="M137 59l4 4 7-8" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/>`);
+  },
+
   // ---------- Step 2 ----------
   effect3d: () => svg(`
     ${eye(50, 14)}${eye(110, 14)}

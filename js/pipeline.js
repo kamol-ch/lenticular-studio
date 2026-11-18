@@ -1,7 +1,7 @@
 // Frame building and interlacing orchestration (browser).
 
 import { store } from './store.js';
-import { frameGeometry, framesSignature, bleedBoxPx, lpiInUse } from './core/geometry.js';
+import { frameGeometry, framesSignature, bleedBoxPx, lpiInUse, mmToPx } from './core/geometry.js';
 import { resampleToSigned } from './core/depthmap.js';
 import { viewGain } from './core/warp.js';
 import { makeCanvas, ctx2d, imageDataOf, drawCover } from './canvas.js';
@@ -105,6 +105,8 @@ export function interlaceParams(state = store.state, overrides = {}) {
     marginMm: state.interlace.marginMm,
     tile: state.interlace.tileOnMedia,
     media: state.media,
+    smoothEdges: state.interlace.smoothEdges,
+    spreadPx: mmToPx(state.printer.inkSpreadMm || 0, ppi),
     ...overrides,
   };
 }

@@ -12,7 +12,7 @@ export function defaultState() {
     effect: '3d', // '3d' | 'animation' | '3d-motion'
     orientation: 'vertical', // ridge direction: 'vertical' | 'horizontal'
     // Calibration (Step 1)
-    printer: { ppi: 720 },
+    printer: { ppi: 720, inkSpreadMm: 0 }, // ink spread: how far ink creeps on this paper, per edge
     media: { name: 'A4', widthMm: 210, heightMm: 297, marginMm: 3 },
     lens: {
       lpiNominal: 75, lpiMeasured: null, angleDeg: null,
@@ -29,7 +29,7 @@ export function defaultState() {
       previewFps: 8,
     },
     depth: { mode: 'none', keyPlane: 0, strength: 0.6 }, // mode: 'none' | 'layers' | 'ai'
-    interlace: { reverse: true, marks: true, tileOnMedia: false, phaseOffset: 0, marginMm: 8 },
+    interlace: { reverse: true, marks: true, tileOnMedia: false, phaseOffset: 0, marginMm: 8, smoothEdges: true },
     print: { checklist: {} },
     steps: { 1: 'todo', 2: 'todo', 3: 'todo', 4: 'todo', 5: 'todo', 6: 'todo', 7: 'todo' },
   };

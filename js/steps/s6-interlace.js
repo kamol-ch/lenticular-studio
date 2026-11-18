@@ -253,6 +253,8 @@ export default {
         hint('Print frames are built automatically from Steps 3–5. Own frames? Import images named frame_01.png, frame_02.png, …')),
       section('Options',
         checkbox({ label: 'Reverse frame order', checked: s().interlace.reverse, hint: 'Toggle if 3D looks inside-out.', onChange: (v) => { store.update((st) => { st.interlace.reverse = v; }); invalidate(); } }),
+        checkbox({ label: 'Smooth strip edges', checked: s().interlace.smoothEdges !== false, hint: 'Blends the pixel a strip edge crosses, so every strip carries the same width instead of rounding to whole pixels.', onChange: (v) => { store.update((st) => { st.interlace.smoothEdges = v; }); invalidate(); } }),
+        hint(s().printer.inkSpreadMm > 0 ? `Ink-spread compensation: light strips widened by ${s().printer.inkSpreadMm} mm per edge (Step 1).` : 'No ink-spread compensation (set it in Step 1 → Ink spread).'),
         checkbox({ label: 'Alignment marks', checked: s().interlace.marks, hint: 'Crop marks + lens alignment strip.', onChange: (v) => { store.update((st) => { st.interlace.marks = v; }); invalidate(); } }),
         numberField({ label: 'Marks margin', unit: 'mm', value: s().interlace.marginMm, step: 1, min: 4, max: 20, onChange: (v) => { if (v >= 4) { store.update((st) => { st.interlace.marginMm = v; }); invalidate(); } } }),
         checkbox({ label: `Tile cards on the paper (${s().media.name || `${s().media.widthMm} × ${s().media.heightMm} mm`})`, checked: s().interlace.tileOnMedia, hint: 'Copies share one lens grid.', onChange: (v) => { store.update((st) => { st.interlace.tileOnMedia = v; }); invalidate(); } }),
