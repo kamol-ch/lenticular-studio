@@ -32,7 +32,7 @@ export default {
 
     // ---------- test-sheet previews (the real files, cached) ----------
     const cache = {}; // kind → { key, blob, bitmap, pending }
-    const keyOf = (kind) => { const st = s(); return JSON.stringify([kind, st.printer.ppi, st.media, st.lens, st.tests, st.interlace.marks, st.interlace.marginMm, st.interlace.reverse, st.interlace.smoothEdges]); };
+    const keyOf = (kind) => { const st = s(); return JSON.stringify([kind, st.printer.ppi, st.printer.inkSpreadMm, st.media, st.lens, st.tests, st.interlace.marks, st.interlace.marginMm, st.interlace.reverse, st.interlace.smoothEdges]); };
     const ensure = (kind, { now = false } = {}) => {
       const key = keyOf(kind);
       const c = cache[kind] || (cache[kind] = {});
