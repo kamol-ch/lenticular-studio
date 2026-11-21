@@ -96,3 +96,20 @@ Print tests with the real lens, in order: pitch test → viewing-angle test → 
 - Motion on a *painted mask* fills the uncovered area with a soft blur of its surroundings. This works for small motions. Large moves need a separate layer.
 - Video decoding uses the browser's codecs. If a clip won't load, re-encode it to H.264 MP4.
 - 1440 ppi works, but frames along the non-interlace axis are capped at 720 ppi to save memory.
+
+## Third-party components
+
+Nothing third-party is bundled in this repository. These load in the browser at run time:
+
+| Component | Source | License |
+|---|---|---|
+| [JSZip](https://stuk.github.io/jszip/) 3.10.1 | cdnjs | MIT (dual-licensed MIT or GPL-3.0-or-later; used under MIT) |
+| [transformers.js](https://github.com/huggingface/transformers.js) 3.0.2 | jsDelivr, only for *Estimate with AI* | Apache-2.0 |
+| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) | loaded by transformers.js | MIT |
+| [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) | Hugging Face, downloaded on first AI estimate | Apache-2.0 |
+
+Only the *Small* Depth Anything V2 model is Apache-2.0. The larger variants are licensed for non-commercial use only, so check the license before switching models.
+
+## License
+
+[MIT](LICENSE) © 2026 kamol-ch
