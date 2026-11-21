@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Browser-based lenticular card studio (3D depth, animation, or both).",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node serve.mjs",
