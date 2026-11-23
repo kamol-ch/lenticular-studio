@@ -301,3 +301,14 @@ body.editing { overflow: hidden; }
 
 .coach { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: flex; align-items: center; gap: 12px; max-width: min(430px, calc(100% - 240px)); padding: 8px 10px 8px 14px; border-radius: 10px; background: var(--text); color: var(--bg); font-size: .85rem; box-shadow: var(--shadow); }
 .coach span { opacity: .9; }
+
+/* ---------- Ask AI ---------- */
+.ask-dialog { width: min(560px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--text); padding: 18px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.ask-dialog::backdrop { background: rgba(0,0,0,.35); }
+.ask-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ask-head h3 { margin: 0; font-size: 1.05rem; }
+.ask-dialog textarea { width: 100%; resize: vertical; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); margin: 4px 0 8px; }
+.ask-dialog textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ask-preview { white-space: pre-wrap; font-family: var(--mono); font-size: .75rem; background: var(--panel-2); border-radius: 8px; padding: 10px; max-height: 220px; overflow: auto; margin: 6px 0 0; }
+.ask-actions { margin-top: 8px; }
+.ask-foot { margin: 12px 0 0; font-size: .78rem; }
