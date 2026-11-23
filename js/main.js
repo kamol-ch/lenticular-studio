@@ -7,7 +7,8 @@ import { saveProject, loadProject } from './project-io.js';
 import { createStage } from './stage.js';
 import { startAutosave, loadAutosave, clearAutosave } from './autosave.js';
 import step1 from './steps/s1-lens.js';
-import step2 from './steps/s2-plan.js';
+import step2, { planFor } from './steps/s2-plan.js';
+import { openAskAI } from './ask-ai.js';
 import step3 from './steps/s3-images.js';
 import step4 from './steps/s4-animation.js';
 import step5 from './steps/s5-depth.js';
@@ -208,6 +209,16 @@ const doRedo = () => { if (store.redo()) renderStep(); };
 undoBtn.addEventListener('click', doUndo);
 redoBtn.addEventListener('click', doRedo);
 document.getElementById('btn-undo').append(undoBtn);
+
+// One "Ask AI" entry point: it opens the user's own AI with this step and the settings.
+document.getElementById('btn-ask').append(button('Ask AI', () => {
+  const step = STEPS[current - 1];
+  const state = store.state;
+  let plan = null;
+  try { plan = planFor(state); } catch { /* incomplete state: settings only */ }
+  const shown = [...document.querySelectorAll('#inspector .warnings li, #main .warnings li')].map((li) => li.textContent);
+  openAskAI({ step: { id: step.id, title: step.title }, state, plan, warnings: [...shown, ...(plan?.warnings || []).map((w) => w.text)] });
+}, { kind: 'ghost', title: 'Ask an AI assistant about this step, with your settings' }));
 document.getElementById('btn-redo').append(redoBtn);
 const refreshHistory = () => { undoBtn.disabled = !store.canUndo; redoBtn.disabled = !store.canRedo; };
 store.on('history', refreshHistory);

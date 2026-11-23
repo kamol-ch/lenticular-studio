@@ -27,6 +27,7 @@ Every step uses a three-pane editor: the step list, a canvas in the middle and a
 - **Depth side-view:** in Step 5 (layers mode) a panel on the canvas shows each layer from far to near; drag a dot to change its depth, or the orange marker to move the key plane.
 - **Lens widget:** a docked lens cross-section shows which strips the eyes (Step 2) or the current tilt (Steps 4 to 6) see.
 - **Undo / redo:** Ctrl+Z and Ctrl+Shift+Z, including depth and mask brush strokes.
+- **Ask AI:** one button in the top bar opens Claude, ChatGPT or Perplexity in a new tab with your question, the current step and your settings pre-filled (or copies the prompt for any other assistant). The app itself never calls an AI and never sends images. Answers draw on [docs/HELP.md](docs/HELP.md), which lists every formula and a troubleshooting table.
 - **Autosave:** images, depth map, mask and clip frames are kept in the browser (IndexedDB) and restored on reload. **Save project** still writes a portable `project.zip`.
 
 ## Workflow
@@ -60,6 +61,8 @@ js/scene.js            card-on-paper layout, overlays and lens widget for the ca
 js/preview.js          live low-resolution frames for the canvas
 js/tiltstrip.js        frame thumbnails, tilt slider and Play
 js/autosave.js         IndexedDB autosave and restore
+js/ask-ai.js           Ask AI dialog (pre-filled links to the user's AI)
+docs/HELP.md           formulas and troubleshooting (for people and AI assistants)
 js/depth-tools.js      AI depth estimate, depth map from layers
 js/clip-tools.js       video clip → frames
 js/store.js            state (JSON, saved to localStorage) + in-memory assets
@@ -73,6 +76,7 @@ js/core/               pure, DOM-free logic (unit-tested in Node)
   depthmap.js          brushes, blur, dilate, resample
   sequence.js          ping-pong order, frame times, alignment search
   schema.js            defaults, normalisation, step slices
+  askai.js             Ask AI prompt builder
 js/workers/pixel-worker.js   interlace + encode, zoom crop, depth warps
 js/compose.js          layer compositing with motion / depth shifts
 js/pipeline.js         build final frames, import frames, interlace calls
@@ -87,7 +91,7 @@ js/steps/s1…s7         step UIs
 npm test
 ```
 
-There are 34 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
+There are 38 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
 
 Print tests with the real lens, in order: pitch test → viewing-angle test → ink-spread test → 2-frame flip → 3D.
 
