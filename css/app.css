@@ -312,3 +312,35 @@ body.editing { overflow: hidden; }
 .ask-preview { white-space: pre-wrap; font-family: var(--mono); font-size: .75rem; background: var(--panel-2); border-radius: 8px; padding: 10px; max-height: 220px; overflow: auto; margin: 6px 0 0; }
 .ask-actions { margin-top: 8px; }
 .ask-foot { margin: 12px 0 0; font-size: .78rem; }
+
+/* ---------- Help page (help.html, also shown inside the app) ---------- */
+.help { max-width: 820px; line-height: 1.6; }
+.help-standalone .help { margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 80px; }
+.help-standalone .brand { color: var(--text); text-decoration: none; }
+.help-standalone .top-actions .btn { text-decoration: none; }
+.help h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .4em; }
+.help section { padding-top: 12px; margin-top: 28px; border-top: 1px solid var(--line); scroll-margin-top: 70px; }
+.help section h2 { font-size: 1.35rem; }
+.help h3 { margin-top: 1.4em; }
+.help-hero .lead { font-size: 1.02rem; }
+.help-toc { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin: 20px 0 0; }
+.help-toc h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; }
+.help-toc ol { columns: 2 220px; margin: 0; padding-left: 1.3em; }
+.help-toc li { break-inside: avoid; padding: 2px 0; }
+.help-terms { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.help-terms dt { font-weight: 650; }
+.help-terms dd { margin: 0; }
+@media (max-width: 560px) { .help-terms { grid-template-columns: 1fr; } .help-terms dd { margin-bottom: 8px; } }
+.help .formula { background: var(--info-bg); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; padding: 8px 14px; margin: 10px 0; }
+.help .formula p { margin: 2px 0; }
+.help .formula p + p { color: var(--muted); font-size: .9rem; }
+.help .formula code { font-size: .95em; font-weight: 600; }
+.help .formula-block { background: var(--info-bg); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; padding: 10px 14px; overflow-x: auto; font-family: var(--mono); font-size: .88rem; }
+.help-steps li { margin-bottom: 8px; }
+.help-note { background: var(--panel-2); border-radius: 8px; padding: 8px 12px; font-size: .92rem; }
+.help .table-wrap { overflow-x: auto; }
+.help-table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.help-table th, .help-table td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.help-table th { background: var(--panel-2); font-weight: 650; }
+.help-table td:first-child { font-weight: 550; }
+.help-back { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }

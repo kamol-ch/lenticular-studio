@@ -20,6 +20,12 @@ test('prompt carries the step, the help link, the settings and the question', ()
   assert.match(p, /My question: Why 1\.5\?$/);
 });
 
+test('AI sites include Gemini; the help link can be the deployed page', () => {
+  assert.deepEqual(AI_SITES.map((s) => s.id), ['claude', 'chatgpt', 'gemini', 'perplexity']);
+  const p = buildAskPrompt({ step: { id: 1, title: 'Printer & lens' }, state, question: 'q', helpUrl: 'https://example.app/help.html' });
+  assert.ok(p.includes('https://example.app/help.html'));
+});
+
 test('settings can be left out', () => {
   const p = buildAskPrompt({ step: { id: 1, title: 'Printer & lens' }, state, plan, warnings: ['x'], question: 'Hi', includeSettings: false });
   assert.doesNotMatch(p, /My settings|warnings/);
@@ -35,6 +41,6 @@ test('long warning lists are trimmed to keep the link short', () => {
 test('AI links encode the prompt', () => {
   for (const s of AI_SITES) {
     const u = new URL(s.url('a b & c?'));
-    assert.equal(u.searchParams.get('q'), 'a b & c?');
+    assert.equal(u.searchParams.get(s.param), 'a b & c?');
   }
 });
