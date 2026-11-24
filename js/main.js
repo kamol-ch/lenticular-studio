@@ -9,6 +9,8 @@ import { startAutosave, loadAutosave, clearAutosave } from './autosave.js';
 import step1 from './steps/s1-lens.js';
 import step2, { planFor } from './steps/s2-plan.js';
 import { openAskAI } from './ask-ai.js';
+import { renderHelp, helpPageUrl } from './help.js';
+import { HELP_URL } from './core/askai.js';
 import step3 from './steps/s3-images.js';
 import step4 from './steps/s4-animation.js';
 import step5 from './steps/s5-depth.js';
@@ -24,6 +26,7 @@ const nameInput = document.getElementById('project-name');
 
 let current = 1;
 let cleanup = null;
+let helpOpen = false;
 
 const STATUS_LABEL = { todo: '', done: 'Done', skipped: 'Skipped' };
 
@@ -101,6 +104,7 @@ function stepNav(step) {
 function renderStep() {
   cleanup?.();
   cleanup = null;
+  helpOpen = false;
   clear(main);
   const step = STEPS[current - 1];
   const isEditor = typeof step.editor === 'function';
@@ -147,7 +151,20 @@ function go(n) {
   else route();
 }
 
+function showHelp(section) {
+  cleanup?.();
+  cleanup = null;
+  helpOpen = true;
+  editorEl.hidden = true;
+  main.hidden = false;
+  document.body.classList.remove('editing');
+  const step = STEPS[current - 1];
+  renderHelp(main, { section, backLabel: `Back to Step ${step.id} · ${step.title}`, onBack: () => go(current) });
+}
+
 function route() {
+  const hm = /^#help(?:\/([\w-]+))?/.exec(location.hash);
+  if (hm) { renderNav(); showHelp(hm[1]); return; }
   const m = /#step-(\d)/.exec(location.hash);
   current = m ? Math.max(1, Math.min(STEPS.length, Number(m[1]))) : 1;
   renderNav();
@@ -204,8 +221,8 @@ window.addEventListener('beforeunload', (e) => {
 // ---------- undo / redo ----------
 const undoBtn = h('button', { type: 'button', class: 'btn ghost', title: 'Undo (Ctrl+Z)', 'aria-label': 'Undo' }, '↶');
 const redoBtn = h('button', { type: 'button', class: 'btn ghost', title: 'Redo (Ctrl+Shift+Z)', 'aria-label': 'Redo' }, '↷');
-const doUndo = () => { if (store.undo()) renderStep(); };
-const doRedo = () => { if (store.redo()) renderStep(); };
+const doUndo = () => { if (store.undo() && !helpOpen) renderStep(); };
+const doRedo = () => { if (store.redo() && !helpOpen) renderStep(); };
 undoBtn.addEventListener('click', doUndo);
 redoBtn.addEventListener('click', doRedo);
 document.getElementById('btn-undo').append(undoBtn);
@@ -217,8 +234,14 @@ document.getElementById('btn-ask').append(button('Ask AI', () => {
   let plan = null;
   try { plan = planFor(state); } catch { /* incomplete state: settings only */ }
   const shown = [...document.querySelectorAll('#inspector .warnings li, #main .warnings li')].map((li) => li.textContent);
-  openAskAI({ step: { id: step.id, title: step.title }, state, plan, warnings: [...shown, ...(plan?.warnings || []).map((w) => w.text)] });
+  openAskAI({ step: { id: step.id, title: step.title }, state, plan, helpUrl: helpPageUrl(HELP_URL), warnings: [...shown, ...(plan?.warnings || []).map((w) => w.text)] });
 }, { kind: 'ghost', title: 'Ask an AI assistant about this step, with your settings' }));
+
+// Help: the help page, opened at the current step's section. Click again to go back.
+document.getElementById('btn-help').append(button('Help', () => {
+  if (helpOpen) go(current);
+  else location.hash = `#help/step-${current}`;
+}, { kind: 'ghost', title: 'How this step works: formulas, tests and troubleshooting' }));
 document.getElementById('btn-redo').append(redoBtn);
 const refreshHistory = () => { undoBtn.disabled = !store.canUndo; redoBtn.disabled = !store.canRedo; };
 store.on('history', refreshHistory);

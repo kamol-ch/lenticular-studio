@@ -3,18 +3,24 @@
 
 import { lpiInUse, pitchPx } from './geometry.js';
 
-export const HELP_URL = 'https://raw.githubusercontent.com/kamol-ch/lenticular-studio/main/docs/HELP.md';
+/** Help page fallback when the app runs locally (the deployed app passes its own help.html). */
+export const HELP_URL = 'https://raw.githubusercontent.com/kamol-ch/lenticular-studio/main/help.html';
 export const REPO_URL = 'https://github.com/kamol-ch/lenticular-studio';
 
 /** Keep pre-filled links comfortably inside URL length limits. */
 export const MAX_PROMPT_CHARS = 1800;
 
-/** AI sites that accept a pre-filled prompt in the URL (unofficial but widely used). */
+/**
+ * AI sites that accept a pre-filled prompt in the URL (unofficial but widely
+ * used). `copyToo`: the site may ignore the parameter, so the prompt is also
+ * put on the clipboard for pasting.
+ */
 export const AI_SITES = [
-  { id: 'claude', name: 'Claude', url: (q) => `https://claude.ai/new?q=${encodeURIComponent(q)}` },
-  { id: 'chatgpt', name: 'ChatGPT', url: (q) => `https://chatgpt.com/?q=${encodeURIComponent(q)}` },
-  { id: 'perplexity', name: 'Perplexity', url: (q) => `https://www.perplexity.ai/search/new?q=${encodeURIComponent(q)}` },
-];
+  { id: 'claude', name: 'Claude', base: 'https://claude.ai/new', param: 'q' },
+  { id: 'chatgpt', name: 'ChatGPT', base: 'https://chatgpt.com/', param: 'q' },
+  { id: 'gemini', name: 'Gemini', base: 'https://gemini.google.com/app', param: 'prompt', copyToo: true },
+  { id: 'perplexity', name: 'Perplexity', base: 'https://www.perplexity.ai/search/new', param: 'q' },
+].map((s) => ({ ...s, url: (q) => `${s.base}?${s.param}=${encodeURIComponent(q)}` }));
 
 /** Example questions per step, used as the input placeholder. */
 export const EXAMPLE_QUESTIONS = {
@@ -52,11 +58,11 @@ export function settingsLines(state, plan) {
  * The full prompt. Warnings are dropped from the end first if it gets too long.
  * @param {{ step:{id:number,title:string}, state:object, plan?:object, warnings?:string[], question?:string, includeSettings?:boolean }} o
  */
-export function buildAskPrompt({ step, state, plan = null, warnings = [], question = '', includeSettings = true }) {
+export function buildAskPrompt({ step, state, plan = null, warnings = [], question = '', includeSettings = true, helpUrl = HELP_URL }) {
   const q = question.trim() || '(I will type my question here.)';
   const make = (ws) => [
     `I'm using Lenticular Card Studio, a free browser tool for printing lenticular cards (${REPO_URL}).`,
-    `Please read its help file with all formulas and troubleshooting first: ${HELP_URL}`,
+    `Please read its help page with all formulas and troubleshooting first: ${helpUrl}`,
     `Answer based on how this tool calculates things, show the numbers with my settings, and keep it practical.`,
     '',
     `I'm on Step ${step.id} · ${step.title}.`,

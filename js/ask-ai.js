@@ -2,12 +2,12 @@
 // prompt (question + current step + settings). Nothing is sent by this app.
 
 import { h, button, checkbox, toast } from './ui.js';
-import { AI_SITES, EXAMPLE_QUESTIONS, buildAskPrompt, HELP_URL } from './core/askai.js';
+import { AI_SITES, EXAMPLE_QUESTIONS, buildAskPrompt } from './core/askai.js';
 
 let dialog = null;
 
 /**
- * @param {{ step:{id:number,title:string}, state:object, plan?:object, warnings?:string[] }} ctx
+ * @param {{ step:{id:number,title:string}, state:object, plan?:object, warnings?:string[], helpUrl?:string }} ctx
  */
 export function openAskAI(ctx) {
   dialog?.remove();
@@ -20,7 +20,12 @@ export function openAskAI(ctx) {
 
   const open = (site) => {
     if (!question.value.trim()) { question.focus(); toast('Type your question first.'); return; }
-    window.open(site.url(prompt()), '_blank', 'noopener');
+    const text = prompt();
+    if (site.copyToo) {
+      navigator.clipboard?.writeText(text).catch(() => {});
+      toast(`Prompt also copied: if ${site.name} opens empty, paste it (Ctrl+V).`);
+    }
+    window.open(site.url(text), '_blank', 'noopener');
     dialog.close();
   };
   const copy = async () => {
@@ -40,7 +45,7 @@ export function openAskAI(ctx) {
       h('div', { class: 'btn-row ask-actions' },
         ...AI_SITES.map((s) => button(`Ask ${s.name}`, () => open(s), { kind: 'small primary' })),
         button('Copy prompt', copy, { kind: 'small' })),
-      h('p', { class: 'hint ask-foot' }, 'AI answers can be wrong: check them against the ', h('a', { href: HELP_URL.replace('raw.githubusercontent.com', 'github.com').replace('/main/', '/blob/main/'), target: '_blank', rel: 'noopener' }, 'help page'), '.')));
+      h('p', { class: 'hint ask-foot' }, 'AI answers can be wrong: check them against the ', h('a', { href: 'help.html', target: '_blank', rel: 'noopener' }, 'help page'), '.')));
   dialog.addEventListener('close', () => dialog?.remove());
   document.body.append(dialog);
   refresh();

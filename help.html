@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help · Lenticular Card Studio</title>
+  <meta name="description" content="How Lenticular Card Studio works: every formula it uses, the calibration tests, and troubleshooting for lenticular prints.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23264653'/%3E%3Cpath d='M6 26V6M11 26V6M16 26V6M21 26V6M26 26V6' stroke='%23e9c46a' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="help-standalone">
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="6" fill="var(--brand)"/><path d="M6 26V6M11 26V6M16 26V6M21 26V6M26 26V6" stroke="var(--accent)" stroke-width="3"/></svg>
+      <span>Lenticular Card Studio</span>
+    </a>
+    <div class="top-actions"><a class="btn primary" href="./">Open the studio</a></div>
+  </header>
+
+  <article class="help" id="help">
+    <header class="help-hero">
+      <p class="eyebrow">Help</p>
+      <h1>How the studio works</h1>
+      <p class="lead">Lenticular Card Studio is a free, open-source browser tool for printing lenticular cards (3D depth, animation, or both) on an ordinary inkjet printer, with a lenticular lens sheet laid on top. Everything runs in your browser and nothing is uploaded. This page explains every number the tool shows, how it is calculated, and what to do when a print does not look right.</p>
+    </header>
+
+    <nav class="help-toc" aria-label="Contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#terms">Key terms</a></li>
+        <li><a href="#step-1">Step 1 · Printer &amp; lens</a></li>
+        <li><a href="#step-2">Step 2 · Card &amp; frame plan</a></li>
+        <li><a href="#step-3">Step 3 · Images</a></li>
+        <li><a href="#step-4">Step 4 · Animation</a></li>
+        <li><a href="#step-5">Step 5 · Depth &amp; 3D</a></li>
+        <li><a href="#step-6">Step 6 · Slice &amp; interlace</a></li>
+        <li><a href="#step-7">Step 7 · Print &amp; mount</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#privacy">Privacy and Ask AI</a></li>
+      </ol>
+    </nav>
+
+    <section id="terms">
+      <h2>Key terms</h2>
+      <dl class="help-terms">
+        <dt>ppi</dt><dd>Printer pixels per inch in the output file. The default is 720 ppi, native for most Epson inkjets; Canon and HP are usually 600.</dd>
+        <dt>LPI</dt><dd>Lenses per inch of the lens sheet (default 75). <em>Nominal</em> LPI is the packet value; <em>measured</em> LPI comes from the pitch test and is used when present.</dd>
+        <dt>Pitch</dt><dd>The width of one lens in printer pixels: <code>pitch = ppi ÷ LPI</code>.</dd>
+        <dt>Frame</dt><dd>One of the images the lens shows at different angles: a viewpoint for 3D, a moment for animation.</dd>
+        <dt>Strip</dt><dd>The slice of one frame printed under one lens. Each lens holds one strip of every frame.</dd>
+        <dt>Viewing angle</dt><dd>How far you tilt the card before the frame sequence repeats. Measured in Step 1; 32° is assumed until then.</dd>
+        <dt>Ridges</dt><dd>The direction of the lens ribs. <strong>Vertical</strong>: turn the card left/right, and your two eyes see different frames (needed for 3D). <strong>Horizontal</strong>: tilt toward/away, and both eyes see the same frame (best for animation).</dd>
+        <dt>Ink spread</dt><dd>How far ink creeps sideways into neighbouring light areas on a given paper, per edge, in mm.</dd>
+      </dl>
+    </section>
+
+    <section id="step-1">
+      <h2>Step 1 · Printer &amp; lens</h2>
+      <p>Calibrate once per printer, paper and lens, then export <code>lens-profile.json</code> and import it for every new card.</p>
+      <h3>Numbers</h3>
+      <div class="formula">
+        <p><code>pitch = ppi ÷ LPI</code></p>
+        <p>720 ÷ 75 = 9.6 px per lens · 720 ÷ 75.08 = 9.590 px per lens</p>
+      </div>
+      <div class="formula">
+        <p><code>max frames = floor(pitch)</code>, at least 2</p>
+        <p>Each frame needs at least one printer pixel per lens: 9 frames at 720 ppi / 75 LPI.</p>
+      </div>
+      <h3>Test sheets, in order</h3>
+      <p>Every sheet has a border and a 50 mm bar. If the bar does not measure 50 mm, the print was scaled.</p>
+      <ol class="help-steps">
+        <li><strong>Pitch test → measured LPI.</strong> Bands of lines at candidate LPIs. Lay the lens on with its ridges parallel to the lines and look straight down from about 40 cm. Wrong pitches show broad dark and light stripes (beating). The matching band looks evenly toned across its width. A fine thick/thin rhythm on paper is normal (whole-pixel rounding). Plain paper is fine for this one.</li>
+        <li><strong>Viewing-angle test → measured angle.</strong> Eight numbered colours. Tape the lens and sheet to the back of a phone with the ridges side to side, open a level app and tilt toward you. Note the angle where colour 1 first appears and where it appears again: the difference is the viewing angle. Close one eye. Use photo paper.</li>
+        <li><strong>Ink-spread test → ink spread</strong> (optional). A/B bands compensated by 0.00–0.06 mm. Without the lens, the best band shows even, fine stripes with no wave; through the lens it gives the whitest A and the blackest B. Use the paper and driver settings you use for cards.</li>
+        <li><strong>A/B flip test</strong> (optional). A final check with all the measured values applied.</li>
+      </ol>
+      <p class="help-note">Ink spread does not change the pitch test: it widens every line equally on both sides, so the line centres stay put. Do the pitch test first, because the ink-spread sheet is printed at the measured pitch.</p>
+    </section>
+
+    <section id="step-2">
+      <h2>Step 2 · Card &amp; frame plan</h2>
+      <p>Choose the effect (3D, animation, or both), ridge direction, card size, bleed and number of frames.</p>
+      <h3>Frame strip width</h3>
+      <div class="formula">
+        <p><code>strip = pitch ÷ frames</code> px &nbsp;=&nbsp; <code>25.4 ÷ LPI ÷ frames</code> mm</p>
+        <p>8 frames at 9.6 px: 1.2 px = 0.042 mm. 4 frames: 2.4 px = 0.085 mm.</p>
+      </div>
+      <h3>Frames between the eyes (3D)</h3>
+      <div class="formula">
+        <p><code>eye angle = 2 × atan((ipd ÷ 2) ÷ distance)</code></p>
+        <p>ipd 63 mm, distance 400 mm: 2 × atan(31.5 ÷ 400) ≈ 9.0°</p>
+      </div>
+      <div class="formula">
+        <p><code>frames between the eyes = eye angle × frames ÷ viewing angle</code></p>
+        <p>9.0° × 8 ÷ 32° ≈ 2.25</p>
+      </div>
+      <p>Each eye must land on a different frame for 3D. At 1.0 the eyes are one frame apart only at the best spot; at <strong>1.5 or more</strong> they stay on different frames as your head moves a little. Below 1.5 the tool warns <em>Weak 3D</em>.</p>
+      <div class="formula">
+        <p><code>minimum frames for 3D = ceil(1.5 × viewing angle ÷ eye angle)</code></p>
+        <p>At 32°: ceil(1.5 × 32 ÷ 9.0) = 6</p>
+      </div>
+      <h3>Depth budget</h3>
+      <div class="formula">
+        <p><code>max shift per frame = pitch × budget</code> px</p>
+        <p>The budget is in lens widths per frame (0.1–3, default 1). Larger gives stronger 3D but more blur.</p>
+      </div>
+      <h3>Frames for animation</h3>
+      <p>Fewer frames make each one cleaner. With a 75 LPI lens, 3–4 frames is a good start: each strip is wide enough that ink spread and lens blur do not mix neighbouring frames. Use horizontal ridges so both eyes see the same frame.</p>
+      <h3>Working resolution</h3>
+      <p>Frames are stored at about 3 samples per lens across the ridges (the <em>samples per lens</em> setting, 1–8) and at full resolution, up to 720 ppi, along them. A 100 × 150 mm card at 720 ppi / 75 LPI has about 313 lenses across, so a frame is about 940 px wide instead of 3005 px. This saves memory; the print file is still full resolution.</p>
+    </section>
+
+    <section id="step-3">
+      <h2>Step 3 · Images</h2>
+      <p>Upload a single scan, or PNG layers with transparency (background, middle, foreground). Drag a layer on the canvas to move it, scroll to resize it, and set its order, opacity and depth in the panel. Layers are what make layer-based 3D and simple animation possible, so separate the parts that should move or float when you can.</p>
+      <p class="help-note">Scan watercolours at 600 dpi or more. Very high contrast edges (black on white) show ghosting more than soft watercolour does.</p>
+    </section>
+
+    <section id="step-4">
+      <h2>Step 4 · Animation</h2>
+      <p><strong>Simple motion</strong> moves a layer or a painted mask with drift, bob, sway, scale, fade in, fade out or flicker, each with easing. <strong>Video clip</strong> extracts frames between a start and end time, with optional ping-pong (play forward then back) and drift alignment.</p>
+      <p>Keep the change between neighbouring frames small and gradual. Big jumps between very different images ghost the most. The tool warns <em>Ghosting risk</em> when motion moves further per frame than the depth budget (<code>pitch × budget</code> px).</p>
+      <p class="help-note">A painted mask fills the area it uncovers with a soft blur of its surroundings. That works for small moves; large moves need a separate layer.</p>
+    </section>
+
+    <section id="step-5">
+      <h2>Step 5 · Depth &amp; 3D</h2>
+      <h3>Layer mode</h3>
+      <div class="formula">
+        <p><code>shift = −(depth − key plane) × strength × budget px × (frame − centre)</code></p>
+        <p>centre = (frames − 1) ÷ 2. Layer depth runs from −1 (far) to +1 (near). The key plane stays sharp and still.</p>
+      </div>
+      <p>The tool warns <em>Heavy blur risk</em> when <code>max |depth − key plane| × strength &gt; 1</code>, which means some layer shifts further per frame than the budget.</p>
+      <h3>Depth-map mode</h3>
+      <p>A greyscale depth map (white = near, black = far) warps a single image into each view. Get one with <strong>Estimate with AI</strong> (Depth Anything V2 Small, downloaded once and run in your browser), build one from your layers, or start flat. Paint with the near, far and smooth brushes, and use edge cleanup to reduce halos. Gaps that open behind near objects are filled by stretching the background.</p>
+      <p>Check the result with the wiggle preview or the red/cyan anaglyph view.</p>
+    </section>
+
+    <section id="step-6">
+      <h2>Step 6 · Slice &amp; interlace</h2>
+      <h3>Interlacing</h3>
+      <p>For each output pixel column (vertical ridges) or row (horizontal ridges) at position <code>pos</code>:</p>
+      <pre class="formula-block">u     = (pos + 0.5) ÷ pitch + phase offset
+phase = u − floor(u)              (0…1 across one lens)
+frame = floor(phase × frames)     (reversed if "Reverse frame order" is on)</pre>
+      <p>Because the pitch is fractional (9.6 px is not a whole number), strips come out 4 or 5 px wide in a pattern that repeats every 5 lenses (about 1.7 mm). The average stays exact, so the print never drifts out of line with the lens. Tiled cards and the alignment strips use page coordinates, so one lens sheet lines up with all of them.</p>
+      <h3>Smooth strip edges</h3>
+      <p>On by default. Where a strip boundary falls inside a pixel, that pixel becomes a coverage-weighted mix of the two strips, so every strip carries exactly <code>pitch ÷ frames</code> px instead of rounding to whole pixels.</p>
+      <h3>Ink-spread compensation</h3>
+      <div class="formula">
+        <p><code>shift px = ink spread mm × ppi ÷ 25.4</code>, applied at every strip edge toward the darker strip</p>
+        <p>0.035 mm at 720 ppi = 0.99 px per edge. With 2 frames the white strip is printed 4.8 + 2 × 0.99 ≈ 6.8 px wide and spreads back to about 4.8 px on paper.</p>
+      </div>
+      <p>The shift is capped at 0.45 × strip width so no strip disappears. With many frames the strips are narrow, so the cap can be below your measured spread: at 8 frames and 75 LPI it is about 0.019 mm.</p>
+      <h3>Other options</h3>
+      <ul>
+        <li><strong>Reverse frame order</strong>: toggle if 3D looks inside-out.</li>
+        <li><strong>Alignment marks</strong>: crop marks plus alignment strips, in which the first frame's strip of every lens is black.</li>
+        <li><strong>Tile cards on the paper</strong>: copies share one continuous lens grid.</li>
+        <li><strong>Phase offset</strong>: moves the strips under the lenses by a fraction of a lens, if the best view is off-centre.</li>
+      </ul>
+      <h3>Print size</h3>
+      <p>The PNG stores its resolution as pixels per metre, a whole number, so 720 ppi reads back as 719.99 ppi. Print at 100 % / actual size, never fit to page.</p>
+    </section>
+
+    <section id="step-7">
+      <h2>Step 7 · Print &amp; mount</h2>
+      <h3>Printer checklist</h3>
+      <ul>
+        <li>Glossy photo paper loaded, and the matching paper type selected in the driver.</li>
+        <li>Highest quality mode.</li>
+        <li>Bidirectional / "High Speed" printing off: it misaligns passes and causes banding.</li>
+        <li>Scaling 100 %: fit to page off, borderless expansion off.</li>
+        <li>Auto-enhance and colour correction off (or the same on every print).</li>
+        <li>Print from an app that respects the embedded resolution, such as IrfanView ("original size (from DPI)"), GIMP or Photoshop. Many photo viewers rescale.</li>
+      </ul>
+      <h3>Mounting</h3>
+      <ol class="help-steps">
+        <li>Let the print dry fully: at least 1 hour for dye inks, overnight is safer.</li>
+        <li>Find the ridged side by running a fingernail across the lens. Ridges face you, smooth side down.</li>
+        <li>Lay the lens on the print and line a ridge up with the alignment strip. When aligned, the whole strip goes dark or light at once as you tilt; diagonal bands mean the lens is rotated.</li>
+        <li>Tape one edge down once it looks right.</li>
+        <li>Lift the free side, apply adhesive (double-sided film or spray) and roll it down from the taped edge with a brayer to push out air.</li>
+        <li>Trim along the crop marks with a sharp knife and a steel ruler, through lens and print together.</li>
+      </ol>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <div class="table-wrap">
+        <table class="help-table">
+          <thead><tr><th>What you see</th><th>Likely cause</th><th>What to do</th></tr></thead>
+          <tbody>
+            <tr><td>Broad dark and light stripes through the lens, or the image changes across the card</td><td>Pitch does not match the lens, or you are viewing from a different distance than the pitch test</td><td>Redo the pitch test; view from about 40 cm; try ±0.02 LPI</td></tr>
+            <tr><td>One side of the card flips before the other</td><td>A small pitch error that builds up across the width</td><td>Fine-tune the measured LPI by ±0.01–0.02</td></tr>
+            <tr><td>Ghost of the other image everywhere</td><td>Ink spread, the lens not pressed flat, or too many frames</td><td>Set ink spread (Step 1); glossy photo paper; press the lens flat; fewer frames</td></tr>
+            <tr><td>Fine wavy rhythm in the stripes on paper</td><td>4/5 px rounding made visible by ink spread</td><td>Keep <em>Smooth strip edges</em> on and set ink spread</td></tr>
+            <tr><td>Background darker than expected; thin or missing white strips under a magnifier</td><td>Ink spread</td><td>Ink-spread test; glossy paper with the matching driver paper type</td></tr>
+            <tr><td>Animation ghosts</td><td>Strips too narrow for the ink spread, big changes between frames, or vertical ridges</td><td>3–4 frames; small, gradual changes; horizontal ridges</td></tr>
+            <tr><td>Each eye sees a different animation frame</td><td>Vertical ridges</td><td>Use horizontal ridges for animation (Step 2)</td></tr>
+            <tr><td>Effect happens in the wrong direction</td><td>Lens turned 90° to the strips</td><td>Rotate the lens, or change the ridge direction in Step 2 and interlace again</td></tr>
+            <tr><td>3D looks inside-out</td><td>Frame order reversed for this lens</td><td>Toggle <em>Reverse frame order</em> (Step 6)</td></tr>
+            <tr><td>Weak or flat 3D</td><td>Fewer than 1.5 frames between the eyes, or a small depth budget</td><td>More frames, a larger depth budget, or a lens with a narrower viewing angle</td></tr>
+            <tr><td>Blurry far or near objects</td><td>Depth shift beyond the budget</td><td>Lower the strength, move the key plane to the main subject, or narrow the layer depth range</td></tr>
+            <tr><td>Fine at one angle, smeared at others</td><td>Lens slightly rotated against the strips</td><td>Re-align it with the alignment strips before gluing</td></tr>
+            <tr><td>The best view is off-centre</td><td>Lens grid offset against the strips</td><td>Change <em>Phase offset</em> (Step 6)</td></tr>
+            <tr><td>Printed size is wrong (bar is not 50 mm)</td><td>The print app or driver scaled the image</td><td>Print at 100 % / actual size; borderless off</td></tr>
+            <tr><td>Banding or uneven lines from the printer</td><td>Bidirectional ("High Speed") printing</td><td>Turn it off; use the highest quality mode</td></tr>
+            <tr><td>Strips look blurred or merged</td><td>Printed at a different resolution than set in Step 1</td><td>Use the printer's native resolution; turn off driver sharpening and resizing</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacy and Ask AI</h2>
+      <p>Nothing is uploaded. Images, depth maps and projects stay in your browser (autosaved locally) unless you save a project file. The AI depth estimate downloads a model once and runs it in your browser.</p>
+      <p><strong>Ask AI</strong> opens Claude, ChatGPT, Gemini or Perplexity in a new tab with your question, the current step and your settings filled in, and points the assistant to this page. You can preview the exact text first; images are never included. AI answers can be wrong, so check them against this page.</p>
+      <p>Source code and licence (MIT): <a href="https://github.com/kamol-ch/lenticular-studio">github.com/kamol-ch/lenticular-studio</a>.</p>
+    </section>
+  </article>
+</body>
+</html>
