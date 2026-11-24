@@ -344,3 +344,6 @@ body.editing { overflow: hidden; }
 .help-table th { background: var(--panel-2); font-weight: 650; }
 .help-table td:first-child { font-weight: 550; }
 .help-back { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.help-fig { margin: 14px 0 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px 10px; }
+.help-fig .help-fig-svg { max-width: 520px; margin: 0 auto; }
+.help-fig figcaption { color: var(--muted); font-size: .86rem; margin-top: 6px; text-align: center; }
