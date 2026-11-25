@@ -28,7 +28,7 @@ export function defaultState() {
       clip: { start: 0, end: 2, pingPong: true, align: false, fileName: null },
       previewFps: 8,
     },
-    depth: { mode: 'none', keyPlane: 0, strength: 0.6 }, // mode: 'none' | 'layers' | 'ai'
+    depth: { mode: 'none', keyPlane: 0, strength: 0.6, perClipFrame: false }, // mode: 'none' | 'layers' | 'ai'; perClipFrame: one depth map per video-clip frame
     interlace: { reverse: true, marks: true, tileOnMedia: false, phaseOffset: 0, marginMm: 8, smoothEdges: true },
     print: { checklist: {} },
     steps: { 1: 'todo', 2: 'todo', 3: 'todo', 4: 'todo', 5: 'todo', 6: 'todo', 7: 'todo' },

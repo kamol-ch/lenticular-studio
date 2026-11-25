@@ -6,7 +6,7 @@ import { bleedBoxPx, axisOf } from './core/geometry.js';
 import { resampleToSigned } from './core/depthmap.js';
 import { forwardWarp, viewGain } from './core/warp.js';
 import { makeCanvas, ctx2d } from './canvas.js';
-import { renderBase, renderComposite, frameSource, depthBudgetPx } from './compose.js';
+import { renderBase, renderComposite, frameSource, depthBudgetPx, depthMapForFrame } from './compose.js';
 
 export function renderPreviewFrames(state, assets, maxSide = 640) {
   const src = frameSource(state, assets);
@@ -22,11 +22,15 @@ export function renderPreviewFrames(state, assets, maxSide = 640) {
     else renderBase(c, state, assets, i, n);
     frames.push(c);
   }
-  if (mode === 'ai' && assets.depthMap) {
-    const depth = resampleToSigned(assets.depthMap, W, H);
+  if (mode === 'ai') {
     const axis = axisOf(state.orientation);
     const budget = depthBudgetPx(state) * k;
+    const resampled = new Map(); // one resample per distinct map
     frames.forEach((c, i) => {
+      const map = depthMapForFrame(state, assets, i, n);
+      if (!map) return;
+      if (!resampled.has(map)) resampled.set(map, resampleToSigned(map, W, H));
+      const depth = resampled.get(map);
       const x = ctx2d(c, { willReadFrequently: true });
       const img = x.getImageData(0, 0, W, H);
       const out = forwardWarp({ src: img.data, depth, width: W, height: H, gain: viewGain(i, n, state.depth.strength, budget), keyPlane: state.depth.keyPlane, axis });

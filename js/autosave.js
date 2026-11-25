@@ -44,6 +44,7 @@ export async function saveAutosave(store) {
     savedAt: Date.now(),
     layerFiles: a.layerFiles,
     depthMap: a.depthMap ? { w: a.depthMap.w, h: a.depthMap.h, data: a.depthMap.data } : null,
+    clipDepthMaps: a.clipDepthMaps.map((m) => (m ? { w: m.w, h: m.h, data: m.data } : null)),
     motionMask: encoded.mask,
     animFrames: encoded.anim,
   };
@@ -64,6 +65,7 @@ export async function loadAutosave(store) {
   }
   const patch = { layerFiles, layerImages };
   if (rec.depthMap) patch.depthMap = { w: rec.depthMap.w, h: rec.depthMap.h, data: new Uint8Array(rec.depthMap.data) };
+  if (rec.clipDepthMaps?.some(Boolean)) patch.clipDepthMaps = rec.clipDepthMaps.map((m) => (m ? { w: m.w, h: m.h, data: new Uint8Array(m.data) } : null));
   if (rec.motionMask) patch.motionMask = await blobToCanvas(rec.motionMask);
   if (rec.animFrames?.length) patch.animFrames = await Promise.all(rec.animFrames.map((b) => blobToCanvas(b)));
   const any = Object.keys(layerFiles).length || patch.depthMap || patch.motionMask || patch.animFrames;

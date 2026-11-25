@@ -223,7 +223,7 @@ export default {
         const b = bleedBoxPx(s().card, s().printer.ppi);
         const { frames } = await extractClip(f, { start: c.start, end: c.end, n: n(), pingPong: c.pingPong, align: c.align, aspect: b.w / b.h }, (p, l) => prog.set(p, l));
         prog.done();
-        store.setAssets({ animFrames: frames });
+        store.setAssets({ animFrames: frames, clipDepthMaps: [] });
         store.setStep(4, 'done');
         toast(`Extracted ${frames.length} frames. Press Play to watch.`);
       }, { kind: 'primary' })),

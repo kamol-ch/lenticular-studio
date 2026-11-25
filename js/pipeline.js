@@ -2,10 +2,9 @@
 
 import { store } from './store.js';
 import { frameGeometry, framesSignature, bleedBoxPx, lpiInUse, mmToPx } from './core/geometry.js';
-import { resampleToSigned } from './core/depthmap.js';
 import { viewGain } from './core/warp.js';
 import { makeCanvas, ctx2d, imageDataOf, drawCover } from './canvas.js';
-import { renderBase, renderComposite, frameSource, depthBudgetPx } from './compose.js';
+import { renderBase, renderComposite, frameSource, depthBudgetPx, depthMapForFrame, perFrameDepth } from './compose.js';
 import { callWorker, loadFramesIntoWorker, forgetWorkerFrames } from './worker-client.js';
 
 let framesVersion = 0;
@@ -18,7 +17,14 @@ export async function buildFinalFrames(onProgress = () => {}) {
   const src = frameSource(state, assets);
   if (!src) throw new Error('Nothing to build from: add images in Step 3, a clip in Step 4, or import frames in Step 6.');
   const depthMode = state.depth.mode;
-  if (depthMode === 'ai' && !assets.depthMap) throw new Error('AI depth mode is on but there is no depth map yet (Step 5).');
+  if (depthMode === 'ai') {
+    const missing = Array.from({ length: n }, (_, i) => i).filter((i) => !depthMapForFrame(state, assets, i, n));
+    if (missing.length) {
+      throw new Error(perFrameDepth(state, assets)
+        ? `Depth per clip frame is on but ${missing.length} of ${n} frames have no depth map (Step 5: Estimate all frames).`
+        : 'AI depth mode is on but there is no depth map yet (Step 5).');
+    }
+  }
   if (depthMode === 'layers' && src === 'clip') throw new Error('Layer depth needs layers; a video clip has none. Use AI depth for clips.');
 
   const frames = [];
@@ -35,16 +41,17 @@ export async function buildFinalFrames(onProgress = () => {}) {
   }
 
   if (depthMode === 'ai') {
-    const depth = resampleToSigned(assets.depthMap, g.fw, g.fh);
     const budgetWorking = depthBudgetPx(state) * (g.axis === 'x' ? g.sx : g.sy);
+    // Each frame carries its own small 8-bit map; the worker resamples one at a time.
     const items = frames.map((c, i) => {
       const img = imageDataOf(c);
-      return { buffer: img.data.buffer, gain: viewGain(i, n, state.depth.strength, budgetWorking) };
+      const m = depthMapForFrame(state, assets, i, n);
+      return { buffer: img.data.buffer, gain: viewGain(i, n, state.depth.strength, budgetWorking), map: { w: m.w, h: m.h, data: m.data.slice().buffer } };
     });
     const out = await callWorker('warp', {
-      items, depth: depth.buffer, width: g.fw, height: g.fh, keyPlane: state.depth.keyPlane, axis: g.axis,
+      items, width: g.fw, height: g.fh, keyPlane: state.depth.keyPlane, axis: g.axis,
     }, {
-      transfer: [...items.map((it) => it.buffer), depth.buffer],
+      transfer: items.flatMap((it) => [it.buffer, it.map.data]),
       onProgress: (p) => onProgress(0.3 + 0.7 * p, 'Synthesising views'),
     });
     out.forEach((buf, i) => {

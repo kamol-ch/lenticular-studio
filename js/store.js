@@ -6,8 +6,8 @@ import { framesSignature } from './core/geometry.js';
 const LS_KEY = 'lenticular-studio:state';
 
 const HISTORY_LIMIT = 60;
-const AUTOSAVED_ASSETS = ['layerFiles', 'animFrames', 'depthMap', 'motionMask'];
-const FRAME_INPUT_ASSETS = ['layerImages', 'animFrames', 'depthMap', 'motionMask'];
+const AUTOSAVED_ASSETS = ['layerFiles', 'animFrames', 'depthMap', 'clipDepthMaps', 'motionMask'];
+const FRAME_INPUT_ASSETS = ['layerImages', 'animFrames', 'depthMap', 'clipDepthMaps', 'motionMask'];
 
 export function emptyAssets() {
   return {
@@ -18,6 +18,7 @@ export function emptyAssets() {
     animFrames: [],       // HTMLCanvasElement[] (card aspect)
     clipFile: null,       // File (not saved in project)
     depthMap: null,       // { w, h, data: Uint8Array }
+    clipDepthMaps: [],    // per clip frame (same order as animFrames); null where missing
     frames: [],           // HTMLCanvasElement[] at working resolution
     framesSig: null,
     framesSource: null,   // 'built' | 'imported'

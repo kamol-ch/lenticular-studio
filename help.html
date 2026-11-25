@@ -178,6 +178,9 @@
       <p>The tool warns <em>Heavy blur risk</em> when <code>max |depth − key plane| × strength &gt; 1</code>, which means some layer shifts further per frame than the budget.</p>
       <h3>Depth-map mode</h3>
       <p>A greyscale depth map (white = near, black = far) warps a single image into each view. Get one with <strong>Estimate with AI</strong> (Depth Anything V2 Small, downloaded once and run in your browser), build one from your layers, or start flat. Paint with the near, far and smooth brushes, and use edge cleanup to reduce halos. Gaps that open behind near objects are filled by stretching the background.</p>
+      <h3>3D animation from a video clip</h3>
+      <p>With a clip from Step 4, turn on <strong>Depth per clip frame</strong>. Every extracted frame then gets its own depth map, so the depth follows the subject as it moves: as you turn the card, it both moves and stays in 3D. <strong>Estimate all frames with AI</strong> runs the depth model on each frame (a few seconds each). The AI judges each frame on its own, so depth can jump slightly from frame to frame; <strong>Smooth between frames</strong> blends each map with its neighbours to calm that. Pick a frame with <em>Clip frame shown</em> to check or paint its map, or tick <em>Brush all frames</em> to paint parts that do not move into every map at once. Frames without their own map use the single map.</p>
+      <p class="help-note">Each frame is both a new moment and a new viewpoint, and your eyes see two neighbouring frames. Keep the motion between frames small, or the moving subject ghosts.</p>
       <p>Check the result with the wiggle preview or the red/cyan anaglyph view.</p>
     </section>
 

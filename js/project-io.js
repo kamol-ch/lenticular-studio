@@ -50,6 +50,10 @@ export async function saveProject(onProgress = () => {}) {
   onProgress(0.2, 'Animation frames');
   for (let i = 0; i < assets.animFrames.length; i++) zip.file(`animation/frame_${pad(i)}.png`, await canvasToBlob(assets.animFrames[i]));
   if (assets.depthMap) zip.file('depth/depth.png', await canvasToBlob(depthMapToCanvas(assets.depthMap)));
+  for (let i = 0; i < assets.clipDepthMaps.length; i++) {
+    const m = assets.clipDepthMaps[i];
+    if (m) zip.file(`depth/clip/depth_${pad(i)}.png`, await canvasToBlob(depthMapToCanvas(m)));
+  }
   onProgress(0.5, 'Final frames');
   await addFrames(zip, 'frames/');
   if (assets.output) zip.file('output/interlaced.png', assets.output);
@@ -94,6 +98,11 @@ export async function loadProject(file, onProgress = () => {}) {
   for (const e of sortedFiles(zip, 'animation/frame_')) assets.animFrames.push(await blobToCanvas(await entryBlob(e)));
   const depth = zip.file('depth/depth.png');
   if (depth) assets.depthMap = await depthMapFromBlob(await entryBlob(depth), 4096);
+  for (const e of sortedFiles(zip, 'depth/clip/depth_')) {
+    const i = Number(/depth_(\d+)/.exec(e.name)?.[1]) - 1; // file numbers start at 1
+    if (i < 0) continue;
+    if (Number.isInteger(i) && i < assets.animFrames.length) assets.clipDepthMaps[i] = await depthMapFromBlob(await entryBlob(e), 4096);
+  }
   onProgress(0.6, 'Frames');
   const frameEntries = sortedFiles(zip, 'frames/frame_');
   const out = zip.file('output/interlaced.png');
@@ -164,7 +173,7 @@ export async function importAnimation(file) {
   }
   store.update((s) => { s.animation.mode = 'clip'; s.animation.clip.fileName = file.name; });
   const mask = zip.file('mask.png');
-  store.setAssets({ animFrames, ...(mask ? { motionMask: await blobToCanvas(await entryBlob(mask)) } : {}) });
+  store.setAssets({ animFrames, clipDepthMaps: [], ...(mask ? { motionMask: await blobToCanvas(await entryBlob(mask)) } : {}) });
 }
 
 export async function exportFrames() {
