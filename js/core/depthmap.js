@@ -114,3 +114,25 @@ export function resampleToSigned(map, W, H) {
   }
   return out;
 }
+
+/**
+ * Smooth a sequence of depth maps over time, to calm the frame-to-frame
+ * flicker of per-frame AI estimates. Each map becomes a weighted mix with its
+ * neighbours: (w·prev + cur + w·next) / (1 + 2w), with the ends using only the
+ * neighbour they have. Maps of different sizes are left alone. Returns new maps.
+ */
+export function temporalSmooth(maps, weight = 0.5) {
+  return maps.map((m, i) => {
+    if (!m) return m;
+    const nb = [maps[i - 1], maps[i + 1]].filter((o) => o && o.w === m.w && o.h === m.h);
+    if (!nb.length || weight <= 0) return { w: m.w, h: m.h, data: m.data.slice() };
+    const out = new Uint8Array(m.data.length);
+    const norm = 1 + weight * nb.length;
+    for (let p = 0; p < out.length; p++) {
+      let s = m.data[p];
+      for (const o of nb) s += weight * o.data[p];
+      out[p] = Math.round(s / norm);
+    }
+    return { w: m.w, h: m.h, data: out };
+  });
+}

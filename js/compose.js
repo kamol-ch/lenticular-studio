@@ -140,12 +140,34 @@ export function frameSource(state, assets) {
   return null;
 }
 
+/** Which clip frame output frame i of n shows. */
+export function clipIndex(i, n, count) {
+  return n <= 1 || count <= 1 ? 0 : Math.round((i * (count - 1)) / (n - 1));
+}
+
+/** Depth maps are kept per clip frame when this is on and the frames come from a clip. */
+export function perFrameDepth(state, assets) {
+  return state.depth.mode === 'ai' && !!state.depth.perClipFrame && frameSource(state, assets) === 'clip';
+}
+
+/**
+ * The depth map for output frame i: the clip frame's own map in per-frame
+ * mode (falling back to the single map), otherwise the single map.
+ */
+export function depthMapForFrame(state, assets, i, n) {
+  if (perFrameDepth(state, assets)) {
+    const m = assets.clipDepthMaps[clipIndex(i, n, assets.animFrames.length)];
+    if (m) return m;
+  }
+  return assets.depthMap;
+}
+
 /** Base image (no depth) at frame i, at the requested size and true card aspect. */
 export function renderBase(target, state, assets, i, n) {
   const src = frameSource(state, assets);
   if (src === 'clip') {
     const af = assets.animFrames;
-    const idx = n <= 1 || af.length <= 1 ? 0 : Math.round((i * (af.length - 1)) / (n - 1));
+    const idx = clipIndex(i, n, af.length);
     const ctx = ctx2d(target);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingQuality = 'high';

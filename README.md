@@ -39,7 +39,7 @@ Every step uses a three-pane editor: the step list, a canvas in the middle and a
 | 2. Card & frame plan | Effect (3D / animation / both) → ridge direction, card size + bleed, frames. Shows pixels per lens, frames between the eyes, depth budget, working frame size and memory. Warns about weak 3D, too many frames, blur or ghosting risk, and cards that don't fit the lens sheet or paper. | `plan.json` |
 | 3. Images | Upload a scan or PNG layers. Drag to move, scroll to resize, reorder, set opacity and per-layer depth. | `source.zip` |
 | 4. Animation *(optional)* | **Simple motion** on a layer or a painted mask (drift, bob, sway, scale, fade in/out, flicker, with easing). **Video clip**: pick start/end, extract N frames, optional ping-pong and drift alignment. Looping preview. | `animation.zip` |
-| 5. Depth & 3D *(optional)* | **Layer mode**: shift = (depth − key plane) × strength × budget × (frame − centre). **Depth-map mode**: AI estimate, from layers, or flat. Brush near/far/smooth, plus edge cleanup. Forward warp with z-ordering and background-stretch gap fill. Wiggle and red/cyan anaglyph previews. | `depth.png`, `frames.zip` |
+| 5. Depth & 3D *(optional)* | **Layer mode**: shift = (depth − key plane) × strength × budget × (frame − centre). **Depth-map mode**: AI estimate, from layers, or flat. Brush near/far/smooth, plus edge cleanup. With a video clip: one depth map per clip frame (AI estimate for all frames, smoothing between frames), so the depth follows the moving subject. Forward warp with z-ordering and background-stretch gap fill. Wiggle and red/cyan anaglyph previews. | `depth.png`, `frames.zip` |
 | 6. Slice & interlace | Fractional-pitch interlacing with smooth strip edges and ink-spread compensation, reverse order, crop marks and registration strips, tiling on the Step 1 paper with one continuous lens grid, phase offset. 1:1 zoom preview and tilt simulator. | `interlaced.png` (with pHYs ppi) |
 | 7. Print & mount | Printer checklist (bidirectional OFF), mounting steps, troubleshooting. | |
 
@@ -93,7 +93,7 @@ js/steps/s1…s7         step UIs
 npm test
 ```
 
-There are 39 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
+There are 43 Node tests. They cover the interlace mapping (hand-computed indices at 9.6 px, reverse order, measured fractional pitch, horizontal ridges, marks margin and strips, A4 tiling), exact output dimensions, the PNG encoder for all filters (decoded with zlib and checked pixel by pixel, CRCs and ppi), the planner warnings, motion curves, warp behaviour, depth-map tools, the alignment search, state round-trips and migration of older projects.
 
 Print tests with the real lens, in order: pitch test → viewing-angle test → ink-spread test → 2-frame flip → 3D.
 

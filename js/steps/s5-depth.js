@@ -1,8 +1,8 @@
-import { h, row, hint, tip, more, section, slider, button, radios, selectField, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
+import { h, row, hint, tip, more, section, slider, button, radios, selectField, checkbox, downloadBlob, pickFiles, toast, clear, progress, warnings } from '../ui.js';
 import { bleedBoxPx } from '../core/geometry.js';
-import { applyBrush, createDepthMap, edgeCleanup } from '../core/depthmap.js';
+import { applyBrush, createDepthMap, edgeCleanup, temporalSmooth } from '../core/depthmap.js';
 import { makeCanvas, ctx2d, canvasToBlob, depthMapToCanvas, depthMapFromBlob, imageDataOf } from '../canvas.js';
-import { renderBase, frameSource } from '../compose.js';
+import { renderBase, frameSource, perFrameDepth } from '../compose.js';
 import { estimateDepth, depthFromLayers } from '../depth-tools.js';
 import { paperLayout, drawCardOnPaper, drawLensWidget, inflate, inRect } from '../scene.js';
 import { createLivePreview } from '../preview.js';
@@ -31,20 +31,30 @@ export default {
     let view = s().depth.mode === 'ai' ? 'overlay' : 'result';
     let tool = 'near', brushPct = 6, brushS = 0.5;
     let hoverPt = null;
+    // Depth per clip frame: which clip frame the map view and brush work on.
+    const clipCount = () => store.assets.animFrames.length;
+    let editIdx = Math.max(0, Math.floor((clipCount() - 1) / 2));
+    let brushAll = false, smoothTime = true;
+    const perFrame = () => perFrameDepth(s(), store.assets);
+    const curMap = () => (perFrame() ? store.assets.clipDepthMaps[editIdx] || null : store.assets.depthMap);
 
     // ---------- cached pictures ----------
-    const memo = (make) => { let key = null, val = null; return () => { const k = store.inputSig(); if (k !== key) { val = make(); key = k; } return val; }; };
-    const baseImage = memo(() => {
+    const memo = (make) => { let key = null, val = null; return () => { const k = `${store.inputSig()}|${perFrame() ? editIdx : ''}`; if (k !== key) { val = make(); key = k; } return val; }; };
+    /** A source picture at preview size: the clip frame being edited, or the middle frame. */
+    const sourceImage = (idx = null) => {
       if (!frameSource(s(), store.assets)) return null;
       const b = bleedBoxPx(s().card, s().printer.ppi), k = 640 / Math.max(b.w, b.h);
-      return renderBase(makeCanvas(b.w * k, b.h * k), s(), store.assets, Math.floor(s().plan.frames / 2), s().plan.frames);
-    });
+      const c = makeCanvas(b.w * k, b.h * k);
+      if (idx != null) { ctx2d(c).drawImage(store.assets.animFrames[idx], 0, 0, c.width, c.height); return c; }
+      return renderBase(c, s(), store.assets, Math.floor(s().plan.frames / 2), s().plan.frames);
+    };
+    const baseImage = memo(() => sourceImage(perFrame() ? editIdx : null));
     const mapSize = () => { const b = bleedBoxPx(s().card, s().printer.ppi), k = 1024 / Math.max(b.w, b.h); return [Math.round(b.w * k), Math.round(b.h * k)]; };
     let depthCanvas = null, depthKey = null;
     const depthImage = () => {
-      const k = `${store.inputSig()}`;
+      const k = `${store.inputSig()}|${perFrame() ? editIdx : ''}`;
       if (k !== depthKey) {
-        const m = s().depth.mode === 'ai' ? store.assets.depthMap : (s().layers.length ? depthFromLayers(s(), store.assets, ...mapSize().map((v) => Math.round(v / 3))) : null);
+        const m = s().depth.mode === 'ai' ? curMap() : (s().layers.length ? depthFromLayers(s(), store.assets, ...mapSize().map((v) => Math.round(v / 3))) : null);
         depthCanvas = m ? depthMapToCanvas(m) : null;
         depthKey = k;
       }
@@ -62,7 +72,7 @@ export default {
       return out;
     });
 
-    const canBrush = () => s().depth.mode === 'ai' && store.assets.depthMap && (view === 'overlay' || view === 'depth');
+    const canBrush = () => s().depth.mode === 'ai' && curMap() && (view === 'overlay' || view === 'depth');
     const brushMm = () => (brushPct / 100) * L.card.w;
 
     const ts = mountTiltStrip(strip, {
@@ -154,19 +164,24 @@ export default {
         const hit = stage.guides && s().depth.mode === 'layers' ? depthViewDown(pt) : null;
         if (hit) return hit;
         if (!canBrush() || !inRect(pt, L.card)) return null;
-        const m = store.assets.depthMap;
+        const m = curMap();
+        // "Brush all frames" paints the same stroke into every clip frame's map.
+        const maps = perFrame() && brushAll ? store.assets.clipDepthMaps.filter(Boolean) : [m];
         const dab = (p) => {
           hoverPt = p;
-          applyBrush(m, ((p.x - L.card.x) / L.card.w) * m.w, ((p.y - L.card.y) / L.card.h) * m.h, (brushMm() / L.card.w) * m.w, brushS, tool);
+          for (const t of maps) applyBrush(t, ((p.x - L.card.x) / L.card.w) * t.w, ((p.y - L.card.y) / L.card.h) * t.h, (brushMm() / L.card.w) * t.w, brushS, tool);
           depthCanvas = depthMapToCanvas(m);
         };
-        const before = m.data.slice();
+        const before = maps.map((t) => t.data.slice());
         dab(pt);
         return {
           move: dab,
           up: () => {
-            const after = m.data.slice();
-            store.recordAction({ undo: () => { m.data.set(before); store.touchAssets(); }, redo: () => { m.data.set(after); store.touchAssets(); } });
+            const after = maps.map((t) => t.data.slice());
+            store.recordAction({
+              undo: () => { maps.forEach((t, i) => t.data.set(before[i])); store.touchAssets(); },
+              redo: () => { maps.forEach((t, i) => t.data.set(after[i])); store.touchAssets(); },
+            });
             store.touchAssets();
           },
         };
@@ -199,7 +214,10 @@ export default {
         ws.push(...p.warnings.filter((w) => w.code === 'blur-risk' || w.code === 'weak-3d'));
         if (s().orientation === 'horizontal') ws.push({ level: 'warn', text: '3D needs vertical ridges (each eye sees a different strip). Change the ridge direction in Step 2.' });
         if (s().depth.mode === 'layers' && frameSource(s(), store.assets) === 'clip') ws.push({ level: 'error', text: 'Layer depth cannot be used with a video clip. Use a depth map.' });
-        if (s().depth.mode === 'ai' && !store.assets.depthMap) ws.push({ level: 'warn', text: 'No depth map yet: estimate, start from layers, or import one below.' });
+        if (s().depth.mode === 'ai' && perFrame()) {
+          const have = store.assets.clipDepthMaps.filter(Boolean).length;
+          if (have < clipCount()) ws.push({ level: 'warn', text: `${have} of ${clipCount()} clip frames have a depth map.${store.assets.depthMap ? ' The others use the single map.' : ' Estimate all frames below.'}` });
+        } else if (s().depth.mode === 'ai' && !store.assets.depthMap) ws.push({ level: 'warn', text: 'No depth map yet: estimate, start from layers, or import one below.' });
       }
       usage.replaceChildren(warnings(ws) || '');
     };
@@ -239,11 +257,35 @@ export default {
       });
     };
 
+    /** Replace the clip maps as one undoable step. */
+    const setClipMaps = (next) => {
+      const prev = store.assets.clipDepthMaps;
+      store.recordAction({ undo: () => store.setAssets({ clipDepthMaps: prev }), redo: () => store.setAssets({ clipDepthMaps: next }) });
+      store.setAssets({ clipDepthMaps: next });
+    };
+    /** Set the map being edited: the current clip frame's in per-frame mode, else the single map. */
     const setMap = (m) => {
-      const prev = store.assets.depthMap;
-      store.recordAction({ undo: () => store.setAssets({ depthMap: prev }), redo: () => store.setAssets({ depthMap: m }) });
-      store.setAssets({ depthMap: m });
+      if (perFrame()) {
+        const next = Array.from({ length: clipCount() }, (_, i) => store.assets.clipDepthMaps[i] || null);
+        next[editIdx] = m;
+        setClipMaps(next);
+      } else {
+        const prev = store.assets.depthMap;
+        store.recordAction({ undo: () => store.setAssets({ depthMap: prev }), redo: () => store.setAssets({ depthMap: m }) });
+        store.setAssets({ depthMap: m });
+      }
       setView('overlay');
+    };
+    const estimateAll = async () => {
+      const count = clipCount();
+      const maps = [];
+      for (let i = 0; i < count; i++) {
+        maps.push(await estimateDepth(sourceImage(i), (p, l) => prog.set((i + Math.min(p, 0.99)) / count, `Frame ${i + 1} of ${count}: ${l}`)));
+      }
+      prog.done();
+      setClipMaps(smoothTime ? temporalSmooth(maps, 0.5) : maps);
+      setView('overlay');
+      toast(`Depth maps ready for all ${count} clip frames.`);
     };
     let dil = 2, blr = 2;
     const layersSec = section('Layer depths', layersBox,
@@ -252,10 +294,38 @@ export default {
         renderLayers();
       }, { kind: 'small' })),
       tip('Drag the dots on the canvas, or use the sliders.', 'Back layers far (−), front layers near (+). The orange marker is the key plane.', 'Each frame shifts a layer by (depth − key plane) × strength × budget pixels, so layers at the key plane stay still.'));
+    // ---------- depth per clip frame ----------
+    const clipBox = h('div', { class: 'clip-depth' });
+    const renderClipBox = () => {
+      clear(clipBox);
+      if (frameSource(s(), store.assets) !== 'clip') return;
+      clipBox.append(checkbox({
+        label: 'Depth per clip frame', checked: !!s().depth.perClipFrame,
+        hint: 'Each video frame gets its own depth map, so the depth follows the moving subject.',
+        onChange: (v) => { store.update((st) => { st.depth.perClipFrame = v; }); editIdx = Math.min(editIdx, clipCount() - 1); renderClipBox(); stage.invalidate(); },
+      }));
+      if (!perFrame()) return;
+      const have = store.assets.clipDepthMaps.filter(Boolean).length;
+      const frameSl = slider({
+        label: 'Clip frame shown', value: editIdx + 1, min: 1, max: Math.max(1, clipCount()), step: 1,
+        format: (v) => `${v} of ${clipCount()}${store.assets.clipDepthMaps[v - 1] ? '' : ' (no map)'}`,
+        onInput: (v) => { editIdx = v - 1; if (view === 'result') setView('overlay'); refreshTools(); stage.invalidate(); },
+      });
+      clipBox.append(
+        h('div', { class: 'btn-row' }, button('Estimate all frames with AI', estimateAll, { kind: 'small primary' })),
+        checkbox({ label: 'Smooth between frames', checked: smoothTime, hint: 'Blends each map with its neighbours to reduce depth flicker.', onChange: (v) => { smoothTime = v; } }),
+        frameSl,
+        checkbox({ label: 'Brush all frames', checked: brushAll, hint: 'Paint the same stroke into every frame (for parts that do not move).', onChange: (v) => { brushAll = v; } }),
+        hint(`${have} of ${clipCount()} frames have a depth map. The buttons below work on the frame shown; edge cleanup works on all of them.`));
+    };
+    renderClipBox();
+
     const mapSec = section('Depth map',
+      clipBox,
       h('div', { class: 'btn-row' },
         button('Estimate with AI', async () => {
           if (!frameSource(s(), store.assets)) throw new Error('Add an image in Step 3 (or a clip in Step 4) first.');
+          // In per-frame mode this estimates the clip frame being edited.
           const m = await estimateDepth(baseImage(), (p, l) => prog.set(p, l));
           prog.done();
           setMap(m);
@@ -267,8 +337,8 @@ export default {
       h('div', { class: 'btn-row', style: { marginTop: '8px' } },
         button('Import depth.png…', async () => { const [f] = await pickFiles({ accept: 'image/*' }); if (f) setMap(await depthMapFromBlob(f, 2048)); }, { kind: 'small ghost' }),
         button('Export depth.png', async () => {
-          if (!store.assets.depthMap) throw new Error('No depth map yet.');
-          downloadBlob(await canvasToBlob(depthMapToCanvas(store.assets.depthMap)), 'depth.png');
+          if (!curMap()) throw new Error('No depth map yet.');
+          downloadBlob(await canvasToBlob(depthMapToCanvas(curMap())), perFrame() ? `depth_${String(editIdx + 1).padStart(2, '0')}.png` : 'depth.png');
         }, { kind: 'small ghost' })),
       tip('Paint on the canvas to correct the map.', 'Choose View → Image + depth, then use the brush in the toolbar: Nearer, Farther or Smooth. Ctrl+Z undoes a stroke.'),
       h('h4', {}, 'Edge cleanup'),
@@ -276,11 +346,13 @@ export default {
         slider({ label: 'Grow', value: dil, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { dil = v; } }),
         slider({ label: 'Smooth', value: blr, min: 0, max: 12, step: 1, format: (v) => `${v}px`, onInput: (v) => { blr = v; } })),
       h('div', { class: 'btn-row' }, button('Apply cleanup', () => {
-        if (!store.assets.depthMap) throw new Error('No depth map yet.');
-        const m = store.assets.depthMap, before = m.data.slice();
-        edgeCleanup(m, { dilateRadius: dil, blurRadius: blr });
-        const after = m.data.slice();
-        store.recordAction({ undo: () => { m.data.set(before); store.touchAssets(); }, redo: () => { m.data.set(after); store.touchAssets(); } });
+        // In per-frame mode the cleanup applies to every clip frame's map.
+        const maps = perFrame() ? store.assets.clipDepthMaps.filter(Boolean) : [store.assets.depthMap].filter(Boolean);
+        if (!maps.length) throw new Error('No depth map yet.');
+        const before = maps.map((m) => m.data.slice());
+        maps.forEach((m) => edgeCleanup(m, { dilateRadius: dil, blurRadius: blr }));
+        const after = maps.map((m) => m.data.slice());
+        store.recordAction({ undo: () => { maps.forEach((m, i) => m.data.set(before[i])); store.touchAssets(); }, redo: () => { maps.forEach((m, i) => m.data.set(after[i])); store.touchAssets(); } });
         store.touchAssets();
       }, { kind: 'small' })),
       more('Grows near regions slightly, then smooths, so foreground edges carry their own halo instead of tearing.'));
@@ -298,7 +370,7 @@ export default {
         name: 'depth-mode', value: s().depth.mode,
         options: [['none', 'None'], ['layers', 'Layers'], ['ai', 'Depth map']],
         onChange: (v) => { store.update((st) => { st.depth.mode = v; }); showSections(); setView(v === 'ai' && store.assets.depthMap ? 'overlay' : 'result'); },
-      }), hint('Layers: each layer gets a depth. Depth map: for a single flat painting.')),
+      }), hint('Layers: each layer gets a depth. Depth map: for a flat painting, or one map per frame of a video clip.')),
       settingsSec, layersSec, mapSec,
     );
     showSections(); renderLayers(); refreshUsage(); refreshTools();
@@ -307,6 +379,7 @@ export default {
     let timer = 0;
     const refresh = () => {
       L = paperLayout(s());
+      if (!clipBox.contains(document.activeElement)) renderClipBox();
       refreshUsage(); refreshTools();
       stage.invalidate();
       clearTimeout(timer);

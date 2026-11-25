@@ -3,6 +3,7 @@
 import { createInterlacer } from '../core/interlace.js';
 import { encodePng } from '../core/png.js';
 import { forwardWarp } from '../core/warp.js';
+import { resampleToSigned } from '../core/depthmap.js';
 
 let frames = null; // [{ width, height, data }]
 
@@ -45,9 +46,10 @@ const ops = {
     return { transfer: [out.buffer], value: { buffer: out.buffer, w, h, x0, y0, pageW: il.width, pageH: il.height } };
   },
 
-  warp({ items, depth, width, height, keyPlane, axis }, progress) {
-    const d = new Float32Array(depth);
+  warp({ items, width, height, keyPlane, axis }, progress) {
     const outs = items.map((it, i) => {
+      // Resampled one frame at a time, so only one full-size depth array exists at once.
+      const d = resampleToSigned({ w: it.map.w, h: it.map.h, data: new Uint8Array(it.map.data) }, width, height);
       const r = forwardWarp({ src: new Uint8ClampedArray(it.buffer), depth: d, width, height, gain: it.gain, keyPlane, axis });
       progress((i + 1) / items.length);
       return r.buffer;
